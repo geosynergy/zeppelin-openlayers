@@ -1,15 +1,15 @@
 import Visualization from 'zeppelin-vis';
 import PassthroughTransformation from 'zeppelin-tabledata/passthrough';
 import ColumnselectorTransformation from 'zeppelin-tabledata/columnselector';
-import Map from '../node_modules/ol/Map.js';
-import View from '../node_modules/ol/View.js';
-import OSM from '../node_modules/ol/source/OSM.js';
-import GeoJSON from '../node_modules/ol/format/GeoJSON.js';
-import VectorLayer from '../node_modules/ol/layer/Vector.js';
-import { bbox as bboxStrategy } from '../node_modules/ol/loadingstrategy.js';
-import VectorSource from '../node_modules/ol/source/Vector.js';
-import Stroke from '../node_modules/ol/style/Stroke.js';
-import Style from '../node_modules/ol/style/Style.js';
+const Map = require('../node_modules/ol/Map.js').default;
+const View = require('../node_modules/ol/View.js').default;
+const OSM = require('../node_modules/ol/source/OSM.js').default;
+const GeoJSON = require('../node_modules/ol/format/GeoJSON.js').default;
+const VectorLayer = require('../node_modules/ol/layer/Vector.js').default;
+const bboxStrategy = require('../node_modules/ol/loadingstrategy.js').bbox;
+const VectorSource = require('../node_modules/ol/source/Vector.js').default;
+const Stroke = require('../node_modules/ol/style/Stroke.js').default;
+const Style = require('../node_modules/ol/style/Style.js').default;
 
 const lineStyle = new Style({
     stroke: new Stroke({
