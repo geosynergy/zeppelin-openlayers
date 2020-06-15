@@ -1,5 +1,4 @@
 import Visualization from './node_modules/zeppelin-vis/visualization.js';
-import PassthroughTransformation from './node_modules/zeppelin-tabledata/passthrough.js';
 import ColumnselectorTransformation from './node_modules/zeppelin-tabledata/columnselector.js';
 import Map from './node_modules/ol/Map.js';
 import View from './node_modules/ol/View.js';
@@ -22,7 +21,6 @@ const lineStyle = new Style({
 export default class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
         super(targetEl, config);
-        this.passthrough = new PassthroughTransformation(config);
 
         const columnSpec = [
           { name: 'url', tooltip: 'layer url' },
@@ -158,12 +156,8 @@ export default class ZeppelinOpenLayers extends Visualization {
             console.log(tableData);
             console.log(this.createMapDataModel(tableData));
         } catch (e) {
-            console.error(error);
-            this.showError(error);
+            console.error(e);
+            this.showError(e);
         }
-    }
-
-    getTransformation() {
-        return this.passthrough;
     }
 }
