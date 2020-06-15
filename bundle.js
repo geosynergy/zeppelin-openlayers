@@ -10548,7 +10548,7 @@ var PluggableMap = /** @class */ (function (_super) {
         _this.overlayContainerStopEvent_.style.width = '100%';
         _this.overlayContainerStopEvent_.style.height = '100%';
         _this.overlayContainerStopEvent_.className = 'ol-overlaycontainer-stopevent';
-        _this.viewport_.appendChild(_this.overlayContainerStopEvent_);
+        //_this.viewport_.appendChild(_this.overlayContainerStopEvent_);
         /**
          * @private
          * @type {MapBrowserEventHandler}
