@@ -40197,10 +40197,18 @@ class ZeppelinOpenLayers extends Visualization {
         }
     }
 
+    showError(error) {
+      this.targetEl[0].innerHTML = `
+          <div style="margin-top: 60px; text-align: center; font-weight: 100">
+              <span style="font-size:30px;">
+                  ${error.message}
+              </span>
+          </div>`;
+    }
+
     render(tableData) {
         try {
-            console.log(tableData);
-            console.log(this.createMapDataModel(tableData));
+            this.setLayers(this.createMapDataModel(tableData));
         } catch (e) {
             console.error(e);
             this.showError(e);
