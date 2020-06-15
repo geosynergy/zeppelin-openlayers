@@ -5,7 +5,6 @@ import Map from 'ol/Map';
 import View from 'ol/View';
 import OSM from 'ol/source/OSM';
 import GeoJSON from 'ol/format/GeoJSON';
-import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import { bbox as bboxStrategy } from 'ol/loadingstrategy';
 import VectorSource from 'ol/source/Vector';
