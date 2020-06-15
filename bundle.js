@@ -40100,9 +40100,9 @@ class ZeppelinOpenLayers extends Visualization {
         this.passthrough = new PassthroughTransformation(config);
 
         const columnSpec = [
-          { name: 'layer url' },
-          { name: 'layer name'},
-          { name: 'layer type'},
+          { name: 'url', tooltip: 'layer url' },
+          { name: 'name', tooltip: 'layer name' },
+          { name: 'type', tooltip: 'layer type' },
         ];
     
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
@@ -40121,6 +40121,54 @@ class ZeppelinOpenLayers extends Visualization {
         });
         /** @type {{name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
         this.layersAvailable = [];
+    }
+
+    getTransformation() {
+        return this.transformation;
+    }
+
+    showChart() {
+        super.setConfig(config);
+        this.transformation.setConfig(config);
+        return this.map;
+    }
+
+    createMapDataModel(data) {
+  
+      const getColumnIndex = (config, fieldName, isOptional) => {
+        const fieldConf = config[fieldName];
+        if(fieldConf instanceof Object) {
+          return fieldConf.index
+        } else if(isOptional) {
+          return -1
+        } else {
+          throw {
+            message: "Please set " + fieldName + " in Settings"
+          }
+        }
+      };
+  
+      const config = this.getTransformation().config;
+      const urlIndex = getColumnIndex(config, 'url');
+      const nameIndex = getColumnIndex(config, 'name', true);
+      const typeIndex = getColumnIndex(config, 'type');
+  
+      const rows = data.rows.filter(row=>{
+          return typeof row[nameIndex] === 'string' && typeof row[urlIndex] === 'string' && typeof row[typeIndex] === 'string';
+      }).map(tableRow => {
+        const name = tableRow[nameIndex];
+        const url = tableRow[urlIndex];
+        const type = tableRow[typeIndex];
+        return {
+            name,
+            url,
+            type,
+        };
+      });
+  
+      return {
+        rows
+      };
     }
 
     /** @param {{name:string;url:string;type:"raster"|"vector"}[]} layers */
@@ -40183,7 +40231,7 @@ class ZeppelinOpenLayers extends Visualization {
     render(tableData) {
         try {
             console.log(tableData);
-            console.log(this.transformation.transform(tableData));
+            console.log(this.createMapDataModel(tableData));
         } catch (e) {
             console.error(error);
             this.showError(error);
