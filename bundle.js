@@ -1,12 +1,391 @@
 'use strict';
 
-function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-var Visualization = _interopDefault(require('zeppelin-vis'));
-var PassthroughTransformation = _interopDefault(require('zeppelin-tabledata/passthrough'));
-var ColumnselectorTransformation = _interopDefault(require('zeppelin-tabledata/columnselector'));
-require('elm-pep');
-var RBush$1 = _interopDefault(require('rbush/rbush.js'));
+/**
+ * Base class for visualization
+ */
+class Visualization {
+  constructor(targetEl, config) {
+    this.targetEl = targetEl;
+    this.config = config;
+    this._dirty = false;
+    this._active = false;
+    this._emitter;
+  };
+
+  /**
+   * get transformation
+   */
+  getTransformation() {
+    // override this
+  };
+
+  /**
+   * Method will be invoked when data or configuration changed
+   */
+  render(tableData) {
+    // override this
+  };
+
+  /**
+   * Refresh visualization.
+   */
+  refresh() {
+    // override this
+  };
+
+  /**
+   * method will be invoked when visualization need to be destroyed.
+   * Don't need to destroy this.targetEl.
+   */
+  destroy() {
+    // override this
+  };
+
+  /**
+   * return {
+   *   template : angular template string or url (url should end with .html),
+   *   scope : an object to bind to template scope
+   * }
+   */
+  getSetting() {
+    // override this
+  };
+
+  /**
+   * Activate. invoked when visualization is selected
+   */
+  activate() {
+    if (!this._active || this._dirty) {
+      this.refresh();
+      this._dirty = false;
+    }
+    this._active = true;
+  };
+
+  /**
+   * Activate. invoked when visualization is de selected
+   */
+  deactivate() {
+    this._active = false;
+  };
+
+  /**
+   * Is active
+   */
+  isActive() {
+    return this._active;
+  };
+
+  /**
+   * When window or paragraph is resized
+   */
+  resize() {
+    if (this.isActive()) {
+      this.refresh();
+    } else {
+      this._dirty = true;
+    }
+  };
+
+  /**
+   * Set new config
+   */
+  setConfig(config) {
+    this.config = config;
+    if (this.isActive()) {
+      this.refresh();
+    } else {
+      this._dirty = true;
+    }
+  };
+
+  /**
+   * Emit config. config will sent to server and saved.
+   */
+  emitConfig(config) {
+    this._emitter(config);
+  };
+
+  /**
+   * render setting
+   */
+  renderSetting(targetEl) {
+    var setting = this.getSetting();
+    if (!setting) {
+      return;
+    }
+
+    // already readered
+    if (this._scope) {
+      var self = this;
+      this._scope.$apply(function() {
+        for (var k in setting.scope) {
+          self._scope[k] = setting.scope[k];
+        }
+
+        for (var k in self._prevSettingScope) {
+          if (!setting.scope[k]) {
+            self._scope[k] = setting.scope[k];
+          }
+        }
+      });
+      return;
+    } else {
+      this._prevSettingScope = setting.scope;
+    }
+
+    var scope = this._createNewScope();
+    for (var k in setting.scope) {
+      scope[k] = setting.scope[k];
+    }
+    var template = setting.template;
+
+    if (template.split('\n').length === 1 &&
+        template.endsWith('.html')) { // template is url
+      this._templateRequest(template).then(t =>
+      _renderSetting(this, targetEl, t, scope)
+      );
+    } else {
+      _renderSetting(this, targetEl, template, scope);
+    }
+  };
+}
+
+function _renderSetting(instance, targetEl, template, scope) {
+  instance._targetEl = targetEl;
+  targetEl.html(template);
+  instance._compile(targetEl.contents())(scope);
+  instance._scope = scope;
+}
+
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * Base class for visualization
+ */
+class Transformation {
+  constructor(config) {
+    this.config = config;
+    this._emitter;
+  };
+
+  /**
+   * return {
+   *   template : angular template string or url (url should end with .html),
+   *   scope : an object to bind to template scope
+   * }
+   */
+  getSetting() {
+    // override this
+  };
+
+  /**
+   * Method will be invoked when tableData or config changes
+   */
+  transform(tableData) {
+    // override this
+  };
+
+  /**
+   * render setting
+   */
+  renderSetting(targetEl) {
+    var setting = this.getSetting();
+    if (!setting) {
+      return;
+    }
+
+    // already readered
+    if (this._scope) {
+      var self = this;
+      this._scope.$apply(function() {
+        for (var k in setting.scope) {
+          self._scope[k] = setting.scope[k];
+        }
+
+        for (var k in self._prevSettingScope) {
+          if (!setting.scope[k]) {
+            self._scope[k] = setting.scope[k];
+          }
+        }
+      });
+      return;
+    } else {
+      this._prevSettingScope = setting.scope;
+    }
+
+    var scope = this._createNewScope();
+    for (var k in setting.scope) {
+      scope[k] = setting.scope[k];
+    }
+    var template = setting.template;
+
+    if (template.split('\n').length === 1 &&
+        template.endsWith('.html')) { // template is url
+      var self = this;
+      this._templateRequest(template).then(function(t) {
+        self._render(targetEl, t, scope);
+      });
+    } else {
+      this._render(targetEl, template, scope);
+    }
+  };
+
+  _render(targetEl, template, scope) {
+    this._targetEl = targetEl;
+    targetEl.html(template);
+    this._compile(targetEl.contents())(scope);
+    this._scope = scope;
+  };
+
+  setConfig(config) {
+    this.config = config;
+  };
+
+  /**
+   * Emit config. config will sent to server and saved.
+   */
+  emitConfig(config) {
+    this._emitter(config);
+  };
+}
+
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * passthough the data
+ */
+class PassthroughTransformation extends Transformation {
+  constructor(config) {
+    super(config);
+  };
+
+  /**
+   * Method will be invoked when tableData or config changes
+   */
+  transform(tableData) {
+    return tableData;
+  };
+}
+
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * select columns
+ * - columnSelectorProp
+ *   [
+ *     {
+ *       "name":
+ *       "tooltip":
+ *     },
+ *     ...
+ *   ]
+ */
+class ColumnselectorTransformation extends Transformation {
+  constructor(config, columnSelectorProp) {
+    super(config);
+    this.props = columnSelectorProp;
+  };
+
+  getSetting() {
+    var self = this;
+    var configObj = self.config;
+    return {
+      template: 'app/tabledata/columnselector_settings.html',
+      scope: {
+        config: self.config,
+        props: self.props,
+        tableDataColumns: self.tableDataColumns,
+        save: function() {
+          self.emitConfig(configObj);
+        },
+        remove: function(selectorName) {
+          configObj[selectorName] = null;
+          self.emitConfig(configObj);
+        }
+      }
+    };
+  };
+
+  /**
+   * Method will be invoked when tableData or config changes
+   */
+  transform(tableData) {
+    this.tableDataColumns = tableData.columns;
+    this.removeUnknown();
+    return tableData;
+  };
+
+  removeUnknown() {
+    var fields = this.config;
+    for (var f in fields) {
+      if (fields[f]) {
+        var found = false;
+        for (var i = 0; i < this.tableDataColumns.length; i++) {
+          var a = fields[f];
+          var b = this.tableDataColumns[i];
+          if (a.index === b.index && a.name === b.name) {
+            found = true;
+            break;
+          }
+        }
+        if (!found && (fields[f] instanceof Object) && !(fields[f] instanceof Array)) {
+          fields[f] = null;
+        }
+      }
+    }
+  };
+}
 
 /**
  * @module ol/util
@@ -1566,6 +1945,122 @@ var MapBrowserEvent = /** @class */ (function (_super) {
     };
     return MapBrowserEvent;
 }(MapEvent));
+
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/
+// Variable to hold current primary touch event identifier.
+// iOS needs this since it does not attribute
+// identifier 0 to primary touch event.
+var primaryTouchId = null;
+// Variable to hold mouse pointer captures.
+var mouseCaptureTarget = null;
+if (!("PointerEvent" in window)) {
+    // Define {set,release}PointerCapture
+    definePointerCapture();
+    // Create Pointer polyfill from mouse events only on non-touch device
+    if (!("TouchEvent" in window)) {
+        addMouseToPointerListener(document, "mousedown", "pointerdown");
+        addMouseToPointerListener(document, "mousemove", "pointermove");
+        addMouseToPointerListener(document, "mouseup", "pointerup");
+    }
+    // Define Pointer polyfill from touch events
+    addTouchToPointerListener(document, "touchstart", "pointerdown");
+    addTouchToPointerListener(document, "touchmove", "pointermove");
+    addTouchToPointerListener(document, "touchend", "pointerup");
+}
+// Function defining {set,release}PointerCapture from {set,releas}Capture
+function definePointerCapture() {
+    Element.prototype.setPointerCapture = Element.prototype.setCapture;
+    Element.prototype.releasePointerCapture = Element.prototype.releaseCapture;
+}
+// Function converting a Mouse event to a Pointer event.
+function addMouseToPointerListener(target, mouseType, pointerType) {
+    target.addEventListener(mouseType, function (mouseEvent) {
+        var pointerEvent = new MouseEvent(pointerType, mouseEvent);
+        pointerEvent.pointerId = 1;
+        pointerEvent.isPrimary = true;
+        pointerEvent.pointerType = "mouse";
+        pointerEvent.width = 1;
+        pointerEvent.height = 1;
+        pointerEvent.tiltX = 0;
+        pointerEvent.tiltY = 0;
+        // pressure is 0.5 if a button is holded
+        "buttons" in mouseEvent && mouseEvent.buttons !== 0
+            ? (pointerEvent.pressure = 0.5)
+            : (pointerEvent.pressure = 0);
+        // if already capturing mouse event, transfer target
+        // and don't forget implicit release on mouseup.
+        var target = mouseEvent.target;
+        if (mouseCaptureTarget !== null) {
+            target = mouseCaptureTarget;
+            if (mouseType === "mouseup") {
+                mouseCaptureTarget = null;
+            }
+        }
+        target.dispatchEvent(pointerEvent);
+        if (pointerEvent.defaultPrevented) {
+            mouseEvent.preventDefault();
+        }
+    });
+}
+// Function converting a Touch event to a Pointer event.
+function addTouchToPointerListener(target, touchType, pointerType) {
+    target.addEventListener(touchType, function (touchEvent) {
+        var changedTouches = touchEvent.changedTouches;
+        var nbTouches = changedTouches.length;
+        for (var t = 0; t < nbTouches; t++) {
+            var pointerEvent = new CustomEvent(pointerType, {
+                bubbles: true,
+                cancelable: true
+            });
+            pointerEvent.ctrlKey = touchEvent.ctrlKey;
+            pointerEvent.shiftKey = touchEvent.shiftKey;
+            pointerEvent.altKey = touchEvent.altKey;
+            pointerEvent.metaKey = touchEvent.metaKey;
+            var touch = changedTouches.item(t);
+            pointerEvent.clientX = touch.clientX;
+            pointerEvent.clientY = touch.clientY;
+            pointerEvent.screenX = touch.screenX;
+            pointerEvent.screenY = touch.screenY;
+            pointerEvent.pageX = touch.pageX;
+            pointerEvent.pageY = touch.pageY;
+            var rect = touch.target.getBoundingClientRect();
+            pointerEvent.offsetX = touch.clientX - rect.left;
+            pointerEvent.offsetY = touch.clientY - rect.top;
+            pointerEvent.pointerId = 1 + touch.identifier;
+            // Default values for standard MouseEvent fields.
+            pointerEvent.button = 0;
+            pointerEvent.buttons = 1;
+            pointerEvent.movementX = 0;
+            pointerEvent.movementY = 0;
+            pointerEvent.region = null;
+            pointerEvent.relatedTarget = null;
+            pointerEvent.x = pointerEvent.clientX;
+            pointerEvent.y = pointerEvent.clientY;
+            // Pointer event details
+            pointerEvent.pointerType = "touch";
+            pointerEvent.width = 1;
+            pointerEvent.height = 1;
+            pointerEvent.tiltX = 0;
+            pointerEvent.tiltY = 0;
+            pointerEvent.pressure = 1;
+            // First touch is the primary pointer event.
+            if (touchType === "touchstart" && primaryTouchId === null) {
+                primaryTouchId = touch.identifier;
+            }
+            pointerEvent.isPrimary = touch.identifier === primaryTouchId;
+            // If first touch ends, reset primary touch id.
+            if (touchType === "touchend" && pointerEvent.isPrimary) {
+                primaryTouchId = null;
+            }
+            touchEvent.target.dispatchEvent(pointerEvent);
+            if (pointerEvent.defaultPrevented) {
+                touchEvent.preventDefault();
+            }
+        }
+    });
+}
 
 /**
  * @module ol/has
@@ -24775,6 +25270,584 @@ function drawTextOnPath(flatCoordinates, offset, end, stride, text, startM, maxA
     return angleChanged ? result : [[result[0][0], result[0][1], result[0][2], result[0][3], text]];
 }
 
+(function (global, factory) {
+typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+typeof define === 'function' && define.amd ? define(factory) :
+(global = global || self, global.RBush = factory());
+}(undefined, function () {
+function quickselect(arr, k, left, right, compare) {
+    quickselectStep(arr, k, left || 0, right || (arr.length - 1), compare || defaultCompare);
+}
+
+function quickselectStep(arr, k, left, right, compare) {
+
+    while (right > left) {
+        if (right - left > 600) {
+            var n = right - left + 1;
+            var m = k - left + 1;
+            var z = Math.log(n);
+            var s = 0.5 * Math.exp(2 * z / 3);
+            var sd = 0.5 * Math.sqrt(z * s * (n - s) / n) * (m - n / 2 < 0 ? -1 : 1);
+            var newLeft = Math.max(left, Math.floor(k - m * s / n + sd));
+            var newRight = Math.min(right, Math.floor(k + (n - m) * s / n + sd));
+            quickselectStep(arr, k, newLeft, newRight, compare);
+        }
+
+        var t = arr[k];
+        var i = left;
+        var j = right;
+
+        swap(arr, left, k);
+        if (compare(arr[right], t) > 0) { swap(arr, left, right); }
+
+        while (i < j) {
+            swap(arr, i, j);
+            i++;
+            j--;
+            while (compare(arr[i], t) < 0) { i++; }
+            while (compare(arr[j], t) > 0) { j--; }
+        }
+
+        if (compare(arr[left], t) === 0) { swap(arr, left, j); }
+        else {
+            j++;
+            swap(arr, j, right);
+        }
+
+        if (j <= k) { left = j + 1; }
+        if (k <= j) { right = j - 1; }
+    }
+}
+
+function swap(arr, i, j) {
+    var tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+}
+
+function defaultCompare(a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
+var RBush = function RBush(maxEntries) {
+    if ( maxEntries === void 0 ) maxEntries = 9;
+
+    // max entries in a node is 9 by default; min node fill is 40% for best performance
+    this._maxEntries = Math.max(4, maxEntries);
+    this._minEntries = Math.max(2, Math.ceil(this._maxEntries * 0.4));
+    this.clear();
+};
+
+RBush.prototype.all = function all () {
+    return this._all(this.data, []);
+};
+
+RBush.prototype.search = function search (bbox) {
+    var node = this.data;
+    var result = [];
+
+    if (!intersects(bbox, node)) { return result; }
+
+    var toBBox = this.toBBox;
+    var nodesToSearch = [];
+
+    while (node) {
+        for (var i = 0; i < node.children.length; i++) {
+            var child = node.children[i];
+            var childBBox = node.leaf ? toBBox(child) : child;
+
+            if (intersects(bbox, childBBox)) {
+                if (node.leaf) { result.push(child); }
+                else if (contains(bbox, childBBox)) { this._all(child, result); }
+                else { nodesToSearch.push(child); }
+            }
+        }
+        node = nodesToSearch.pop();
+    }
+
+    return result;
+};
+
+RBush.prototype.collides = function collides (bbox) {
+    var node = this.data;
+
+    if (!intersects(bbox, node)) { return false; }
+
+    var nodesToSearch = [];
+    while (node) {
+        for (var i = 0; i < node.children.length; i++) {
+            var child = node.children[i];
+            var childBBox = node.leaf ? this.toBBox(child) : child;
+
+            if (intersects(bbox, childBBox)) {
+                if (node.leaf || contains(bbox, childBBox)) { return true; }
+                nodesToSearch.push(child);
+            }
+        }
+        node = nodesToSearch.pop();
+    }
+
+    return false;
+};
+
+RBush.prototype.load = function load (data) {
+    if (!(data && data.length)) { return this; }
+
+    if (data.length < this._minEntries) {
+        for (var i = 0; i < data.length; i++) {
+            this.insert(data[i]);
+        }
+        return this;
+    }
+
+    // recursively build the tree with the given data from scratch using OMT algorithm
+    var node = this._build(data.slice(), 0, data.length - 1, 0);
+
+    if (!this.data.children.length) {
+        // save as is if tree is empty
+        this.data = node;
+
+    } else if (this.data.height === node.height) {
+        // split root if trees have the same height
+        this._splitRoot(this.data, node);
+
+    } else {
+        if (this.data.height < node.height) {
+            // swap trees if inserted one is bigger
+            var tmpNode = this.data;
+            this.data = node;
+            node = tmpNode;
+        }
+
+        // insert the small tree into the large tree at appropriate level
+        this._insert(node, this.data.height - node.height - 1, true);
+    }
+
+    return this;
+};
+
+RBush.prototype.insert = function insert (item) {
+    if (item) { this._insert(item, this.data.height - 1); }
+    return this;
+};
+
+RBush.prototype.clear = function clear () {
+    this.data = createNode([]);
+    return this;
+};
+
+RBush.prototype.remove = function remove (item, equalsFn) {
+    if (!item) { return this; }
+
+    var node = this.data;
+    var bbox = this.toBBox(item);
+    var path = [];
+    var indexes = [];
+    var i, parent, goingUp;
+
+    // depth-first iterative tree traversal
+    while (node || path.length) {
+
+        if (!node) { // go up
+            node = path.pop();
+            parent = path[path.length - 1];
+            i = indexes.pop();
+            goingUp = true;
+        }
+
+        if (node.leaf) { // check current node
+            var index = findItem(item, node.children, equalsFn);
+
+            if (index !== -1) {
+                // item found, remove the item and condense tree upwards
+                node.children.splice(index, 1);
+                path.push(node);
+                this._condense(path);
+                return this;
+            }
+        }
+
+        if (!goingUp && !node.leaf && contains(node, bbox)) { // go down
+            path.push(node);
+            indexes.push(i);
+            i = 0;
+            parent = node;
+            node = node.children[0];
+
+        } else if (parent) { // go right
+            i++;
+            node = parent.children[i];
+            goingUp = false;
+
+        } else { node = null; } // nothing found
+    }
+
+    return this;
+};
+
+RBush.prototype.toBBox = function toBBox (item) { return item; };
+
+RBush.prototype.compareMinX = function compareMinX (a, b) { return a.minX - b.minX; };
+RBush.prototype.compareMinY = function compareMinY (a, b) { return a.minY - b.minY; };
+
+RBush.prototype.toJSON = function toJSON () { return this.data; };
+
+RBush.prototype.fromJSON = function fromJSON (data) {
+    this.data = data;
+    return this;
+};
+
+RBush.prototype._all = function _all (node, result) {
+    var nodesToSearch = [];
+    while (node) {
+        if (node.leaf) { result.push.apply(result, node.children); }
+        else { nodesToSearch.push.apply(nodesToSearch, node.children); }
+
+        node = nodesToSearch.pop();
+    }
+    return result;
+};
+
+RBush.prototype._build = function _build (items, left, right, height) {
+
+    var N = right - left + 1;
+    var M = this._maxEntries;
+    var node;
+
+    if (N <= M) {
+        // reached leaf level; return leaf
+        node = createNode(items.slice(left, right + 1));
+        calcBBox(node, this.toBBox);
+        return node;
+    }
+
+    if (!height) {
+        // target height of the bulk-loaded tree
+        height = Math.ceil(Math.log(N) / Math.log(M));
+
+        // target number of root entries to maximize storage utilization
+        M = Math.ceil(N / Math.pow(M, height - 1));
+    }
+
+    node = createNode([]);
+    node.leaf = false;
+    node.height = height;
+
+    // split the items into M mostly square tiles
+
+    var N2 = Math.ceil(N / M);
+    var N1 = N2 * Math.ceil(Math.sqrt(M));
+
+    multiSelect(items, left, right, N1, this.compareMinX);
+
+    for (var i = left; i <= right; i += N1) {
+
+        var right2 = Math.min(i + N1 - 1, right);
+
+        multiSelect(items, i, right2, N2, this.compareMinY);
+
+        for (var j = i; j <= right2; j += N2) {
+
+            var right3 = Math.min(j + N2 - 1, right2);
+
+            // pack each entry recursively
+            node.children.push(this._build(items, j, right3, height - 1));
+        }
+    }
+
+    calcBBox(node, this.toBBox);
+
+    return node;
+};
+
+RBush.prototype._chooseSubtree = function _chooseSubtree (bbox, node, level, path) {
+    while (true) {
+        path.push(node);
+
+        if (node.leaf || path.length - 1 === level) { break; }
+
+        var minArea = Infinity;
+        var minEnlargement = Infinity;
+        var targetNode = (void 0);
+
+        for (var i = 0; i < node.children.length; i++) {
+            var child = node.children[i];
+            var area = bboxArea(child);
+            var enlargement = enlargedArea(bbox, child) - area;
+
+            // choose entry with the least area enlargement
+            if (enlargement < minEnlargement) {
+                minEnlargement = enlargement;
+                minArea = area < minArea ? area : minArea;
+                targetNode = child;
+
+            } else if (enlargement === minEnlargement) {
+                // otherwise choose one with the smallest area
+                if (area < minArea) {
+                    minArea = area;
+                    targetNode = child;
+                }
+            }
+        }
+
+        node = targetNode || node.children[0];
+    }
+
+    return node;
+};
+
+RBush.prototype._insert = function _insert (item, level, isNode) {
+    var bbox = isNode ? item : this.toBBox(item);
+    var insertPath = [];
+
+    // find the best node for accommodating the item, saving all nodes along the path too
+    var node = this._chooseSubtree(bbox, this.data, level, insertPath);
+
+    // put the item into the node
+    node.children.push(item);
+    extend(node, bbox);
+
+    // split on node overflow; propagate upwards if necessary
+    while (level >= 0) {
+        if (insertPath[level].children.length > this._maxEntries) {
+            this._split(insertPath, level);
+            level--;
+        } else { break; }
+    }
+
+    // adjust bboxes along the insertion path
+    this._adjustParentBBoxes(bbox, insertPath, level);
+};
+
+// split overflowed node into two
+RBush.prototype._split = function _split (insertPath, level) {
+    var node = insertPath[level];
+    var M = node.children.length;
+    var m = this._minEntries;
+
+    this._chooseSplitAxis(node, m, M);
+
+    var splitIndex = this._chooseSplitIndex(node, m, M);
+
+    var newNode = createNode(node.children.splice(splitIndex, node.children.length - splitIndex));
+    newNode.height = node.height;
+    newNode.leaf = node.leaf;
+
+    calcBBox(node, this.toBBox);
+    calcBBox(newNode, this.toBBox);
+
+    if (level) { insertPath[level - 1].children.push(newNode); }
+    else { this._splitRoot(node, newNode); }
+};
+
+RBush.prototype._splitRoot = function _splitRoot (node, newNode) {
+    // split root node
+    this.data = createNode([node, newNode]);
+    this.data.height = node.height + 1;
+    this.data.leaf = false;
+    calcBBox(this.data, this.toBBox);
+};
+
+RBush.prototype._chooseSplitIndex = function _chooseSplitIndex (node, m, M) {
+    var index;
+    var minOverlap = Infinity;
+    var minArea = Infinity;
+
+    for (var i = m; i <= M - m; i++) {
+        var bbox1 = distBBox(node, 0, i, this.toBBox);
+        var bbox2 = distBBox(node, i, M, this.toBBox);
+
+        var overlap = intersectionArea(bbox1, bbox2);
+        var area = bboxArea(bbox1) + bboxArea(bbox2);
+
+        // choose distribution with minimum overlap
+        if (overlap < minOverlap) {
+            minOverlap = overlap;
+            index = i;
+
+            minArea = area < minArea ? area : minArea;
+
+        } else if (overlap === minOverlap) {
+            // otherwise choose distribution with minimum area
+            if (area < minArea) {
+                minArea = area;
+                index = i;
+            }
+        }
+    }
+
+    return index || M - m;
+};
+
+// sorts node children by the best axis for split
+RBush.prototype._chooseSplitAxis = function _chooseSplitAxis (node, m, M) {
+    var compareMinX = node.leaf ? this.compareMinX : compareNodeMinX;
+    var compareMinY = node.leaf ? this.compareMinY : compareNodeMinY;
+    var xMargin = this._allDistMargin(node, m, M, compareMinX);
+    var yMargin = this._allDistMargin(node, m, M, compareMinY);
+
+    // if total distributions margin value is minimal for x, sort by minX,
+    // otherwise it's already sorted by minY
+    if (xMargin < yMargin) { node.children.sort(compareMinX); }
+};
+
+// total margin of all possible split distributions where each node is at least m full
+RBush.prototype._allDistMargin = function _allDistMargin (node, m, M, compare) {
+    node.children.sort(compare);
+
+    var toBBox = this.toBBox;
+    var leftBBox = distBBox(node, 0, m, toBBox);
+    var rightBBox = distBBox(node, M - m, M, toBBox);
+    var margin = bboxMargin(leftBBox) + bboxMargin(rightBBox);
+
+    for (var i = m; i < M - m; i++) {
+        var child = node.children[i];
+        extend(leftBBox, node.leaf ? toBBox(child) : child);
+        margin += bboxMargin(leftBBox);
+    }
+
+    for (var i$1 = M - m - 1; i$1 >= m; i$1--) {
+        var child$1 = node.children[i$1];
+        extend(rightBBox, node.leaf ? toBBox(child$1) : child$1);
+        margin += bboxMargin(rightBBox);
+    }
+
+    return margin;
+};
+
+RBush.prototype._adjustParentBBoxes = function _adjustParentBBoxes (bbox, path, level) {
+    // adjust bboxes along the given tree path
+    for (var i = level; i >= 0; i--) {
+        extend(path[i], bbox);
+    }
+};
+
+RBush.prototype._condense = function _condense (path) {
+    // go through the path, removing empty nodes and updating bboxes
+    for (var i = path.length - 1, siblings = (void 0); i >= 0; i--) {
+        if (path[i].children.length === 0) {
+            if (i > 0) {
+                siblings = path[i - 1].children;
+                siblings.splice(siblings.indexOf(path[i]), 1);
+
+            } else { this.clear(); }
+
+        } else { calcBBox(path[i], this.toBBox); }
+    }
+};
+
+function findItem(item, items, equalsFn) {
+    if (!equalsFn) { return items.indexOf(item); }
+
+    for (var i = 0; i < items.length; i++) {
+        if (equalsFn(item, items[i])) { return i; }
+    }
+    return -1;
+}
+
+// calculate node's bbox from bboxes of its children
+function calcBBox(node, toBBox) {
+    distBBox(node, 0, node.children.length, toBBox, node);
+}
+
+// min bounding rectangle of node children from k to p-1
+function distBBox(node, k, p, toBBox, destNode) {
+    if (!destNode) { destNode = createNode(null); }
+    destNode.minX = Infinity;
+    destNode.minY = Infinity;
+    destNode.maxX = -Infinity;
+    destNode.maxY = -Infinity;
+
+    for (var i = k; i < p; i++) {
+        var child = node.children[i];
+        extend(destNode, node.leaf ? toBBox(child) : child);
+    }
+
+    return destNode;
+}
+
+function extend(a, b) {
+    a.minX = Math.min(a.minX, b.minX);
+    a.minY = Math.min(a.minY, b.minY);
+    a.maxX = Math.max(a.maxX, b.maxX);
+    a.maxY = Math.max(a.maxY, b.maxY);
+    return a;
+}
+
+function compareNodeMinX(a, b) { return a.minX - b.minX; }
+function compareNodeMinY(a, b) { return a.minY - b.minY; }
+
+function bboxArea(a)   { return (a.maxX - a.minX) * (a.maxY - a.minY); }
+function bboxMargin(a) { return (a.maxX - a.minX) + (a.maxY - a.minY); }
+
+function enlargedArea(a, b) {
+    return (Math.max(b.maxX, a.maxX) - Math.min(b.minX, a.minX)) *
+           (Math.max(b.maxY, a.maxY) - Math.min(b.minY, a.minY));
+}
+
+function intersectionArea(a, b) {
+    var minX = Math.max(a.minX, b.minX);
+    var minY = Math.max(a.minY, b.minY);
+    var maxX = Math.min(a.maxX, b.maxX);
+    var maxY = Math.min(a.maxY, b.maxY);
+
+    return Math.max(0, maxX - minX) *
+           Math.max(0, maxY - minY);
+}
+
+function contains(a, b) {
+    return a.minX <= b.minX &&
+           a.minY <= b.minY &&
+           b.maxX <= a.maxX &&
+           b.maxY <= a.maxY;
+}
+
+function intersects(a, b) {
+    return b.minX <= a.maxX &&
+           b.minY <= a.maxY &&
+           b.maxX >= a.minX &&
+           b.maxY >= a.minY;
+}
+
+function createNode(children) {
+    return {
+        children: children,
+        height: 1,
+        leaf: true,
+        minX: Infinity,
+        minY: Infinity,
+        maxX: -Infinity,
+        maxY: -Infinity
+    };
+}
+
+// sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
+// combines selection algorithm with binary divide & conquer approach
+
+function multiSelect(arr, left, right, n, compare) {
+    var stack = [left, right];
+
+    while (stack.length) {
+        right = stack.pop();
+        left = stack.pop();
+
+        if (right - left <= n) { continue; }
+
+        var mid = left + Math.ceil((right - left) / n / 2) * n;
+        quickselect(arr, mid, left, right, compare);
+
+        stack.push(left, mid, mid, right);
+    }
+}
+
+return RBush;
+
+}));
+
+var RBush_ = /*#__PURE__*/Object.freeze({
+
+});
+
 /**
  * @module ol/render/canvas/Executor
  */
@@ -25132,7 +26205,7 @@ var Executor = /** @class */ (function () {
                     value: feature
                 };
                 if (!declutterTree) {
-                    declutterTree = new RBush$1(9);
+                    declutterTree = new RBush_(9);
                 }
                 if (!declutterTree.collides(box)) {
                     declutterTree.insert(box);
@@ -28326,7 +29399,7 @@ var RBush = /** @class */ (function () {
         /**
          * @private
          */
-        this.rbush_ = new RBush$1(opt_maxEntries);
+        this.rbush_ = new RBush_(opt_maxEntries);
         /**
          * A mapping between the objects added to this rbush wrapper
          * and the objects that are actually added to the internal rbush.
