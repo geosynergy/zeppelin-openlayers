@@ -6,6 +6,7 @@ import View from './node_modules/ol/View.js';
 import OSM from './node_modules/ol/source/OSM.js';
 import GeoJSON from './node_modules/ol/format/GeoJSON.js';
 import VectorLayer from './node_modules/ol/layer/Vector.js';
+import TileLayer from './node_modules/ol/layer/Tile.js';
 import { bbox as bboxStrategy } from './node_modules/ol/loadingstrategy.js';
 import VectorSource from './node_modules/ol/source/Vector.js';
 import Stroke from './node_modules/ol/style/Stroke.js';
@@ -38,7 +39,9 @@ export default class ZeppelinOpenLayers extends Visualization {
                 zoom: 2,
             }),
             layers: [
-                new OSM(),
+                new TileLayer({
+                    source: new OSM(),
+                }),
             ],
         });
         /** @type {{name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
