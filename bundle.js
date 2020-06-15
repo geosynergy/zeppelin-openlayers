@@ -40198,6 +40198,7 @@ class ZeppelinOpenLayers extends Visualization {
     }
 
     showError(error) {
+      return; // this is destructive. Let's not.
       this.targetEl[0].innerHTML = `
           <div style="margin-top: 60px; text-align: center; font-weight: 100">
               <span style="font-size:30px;">
