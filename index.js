@@ -32,7 +32,7 @@ export default class ZeppelinOpenLayers extends Visualization {
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
         console.log(this, targetEl, config);
         this.map = new Map({
-            target: targetEl,
+            target: targetEl[0],
             view: new View({
                 center: [0, 0],
                 zoom: 2,
