@@ -108,6 +108,7 @@ export default class ZeppelinOpenLayers extends Visualization {
     render(tableData) {
         try {
             console.log(tableData);
+            console.log(this.transformation.transform(tableData));
         } catch (e) {
             console.error(error);
             this.showError(error);
