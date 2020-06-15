@@ -1,0 +1,29 @@
+{
+  "name": "zeppelin-openlayers",
+  "version": "1.0.0",
+  "description": "OpenLayers tool for Zeppelin visualisation.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GeoSynergy/zeppelin-openlayers.git"
+  },
+  "keywords": [
+    "zeppelin",
+    "helium",
+    "visualization"
+  ],
+  "author": "GeoSynergy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GeoSynergy/zeppelin-openlayers/issues"
+  },
+  "homepage": "https://github.com/GeoSynergy/zeppelin-openlayers#readme",
+  "dependencies": {
+    "ol": "^6.3.1",
+    "zeppelin-tabledata": "*",
+    "zeppelin-vis": "*"
+  }
+}
