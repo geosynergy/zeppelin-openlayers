@@ -1,15 +1,15 @@
 import Visualization from 'zeppelin-vis';
 import PassthroughTransformation from 'zeppelin-tabledata/passthrough';
-import ColumnselectorTransformation from 'zeppelin-tabledata/columnselector'
-import Map from 'ol/Map';
-import View from 'ol/View';
-import OSM from 'ol/source/OSM';
-import GeoJSON from 'ol/format/GeoJSON';
-import VectorLayer from 'ol/layer/Vector';
-import { bbox as bboxStrategy } from 'ol/loadingstrategy';
-import VectorSource from 'ol/source/Vector';
-import Stroke from 'ol/style/Stroke';
-import Style from 'ol/style/Style';
+import ColumnselectorTransformation from 'zeppelin-tabledata/columnselector';
+import Map from './node_modules/ol/Map.js';
+import View from './node_modules/ol/View.js';
+import OSM from './node_modules/ol/source/OSM.js';
+import GeoJSON from './node_modules/ol/format/GeoJSON.js';
+import VectorLayer from './node_modules/ol/layer/Vector.js';
+import { bbox as bboxStrategy } from './node_modules/ol/loadingstrategy.js';
+import VectorSource from './node_modules/ol/source/Vector.js';
+import Stroke from './node_modules/ol/style/Stroke.js';
+import Style from './node_modules/ol/style/Style.js';
 
 const lineStyle = new Style({
     stroke: new Stroke({
