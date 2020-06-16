@@ -9,8 +9,9 @@ import TileLayer from './node_modules/ol/layer/Tile.js';
 import VectorSource from './node_modules/ol/source/Vector.js';
 import Stroke from './node_modules/ol/style/Stroke.js';
 import Style from './node_modules/ol/style/Style.js';
-import Feature from './node_modules/ol/Feature.js';
 import Overlay from './node_modules/ol/Overlay.js';
+import ImageWMS from './node_modules/ol/source/ImageWMS.js';
+import ImageLayer from './node_modules/ol/layer/Image.js';
 
 export default class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
@@ -153,7 +154,16 @@ export default class ZeppelinOpenLayers extends Visualization {
                     extractGeometryName: true,
                 });
                 if (layer.type === "raster") {
-                    throw new Error("raster type not implemented");
+                    data.layer = new ImageLayer({
+                        source: new ImageWMS({
+                            url: layer.url,
+                            params: {
+                                LAYERS: layer.name,
+                            },
+                            ratio: 1,
+                            serverType: 'geoserver',
+                        }),
+                    });
                 } else if (layer.type === "vector") {
                     /** @type {ConstructorParameters<typeof import('ol/source/Vector').default>[0]} */
                     let sourceParams;

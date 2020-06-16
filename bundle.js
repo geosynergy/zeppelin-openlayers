@@ -4207,6 +4207,31 @@ var ViewProperty = {
 };
 
 /**
+ * @module ol/string
+ */
+/**
+ * Adapted from https://github.com/omichelsen/compare-versions/blob/master/index.js
+ * @param {string|number} v1 First version
+ * @param {string|number} v2 Second version
+ * @returns {number} Value
+ */
+function compareVersions(v1, v2) {
+    var s1 = ('' + v1).split('.');
+    var s2 = ('' + v2).split('.');
+    for (var i = 0; i < Math.max(s1.length, s2.length); i++) {
+        var n1 = parseInt(s1[i] || '0', 10);
+        var n2 = parseInt(s2[i] || '0', 10);
+        if (n1 > n2) {
+            return 1;
+        }
+        if (n2 > n1) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/**
  * @module ol/coordinate
  */
 /**
@@ -40611,6 +40636,1061 @@ var TileLayer = /** @class */ (function (_super) {
     return TileLayer;
 }(BaseTileLayer));
 
+/**
+ * @module ol/source/common
+ */
+/**
+ * Default WMS version.
+ * @type {string}
+ */
+var DEFAULT_WMS_VERSION = '1.3.0';
+
+var __extends$1y = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+/**
+ * @typedef {function(import("../extent.js").Extent, number, number) : import("../ImageBase.js").default} FunctionType
+ */
+/**
+ * @classdesc
+ * Class encapsulating single reprojected image.
+ * See {@link module:ol/source/Image~ImageSource}.
+ */
+var ReprojImage = /** @class */ (function (_super) {
+    __extends$1y(ReprojImage, _super);
+    /**
+     * @param {import("../proj/Projection.js").default} sourceProj Source projection (of the data).
+     * @param {import("../proj/Projection.js").default} targetProj Target projection.
+     * @param {import("../extent.js").Extent} targetExtent Target extent.
+     * @param {number} targetResolution Target resolution.
+     * @param {number} pixelRatio Pixel ratio.
+     * @param {FunctionType} getImageFunction
+     *     Function returning source images (extent, resolution, pixelRatio).
+     */
+    function ReprojImage(sourceProj, targetProj, targetExtent, targetResolution, pixelRatio, getImageFunction) {
+        var _this = this;
+        var maxSourceExtent = sourceProj.getExtent();
+        var maxTargetExtent = targetProj.getExtent();
+        var limitedTargetExtent = maxTargetExtent ?
+            getIntersection(targetExtent, maxTargetExtent) : targetExtent;
+        var targetCenter = getCenter(limitedTargetExtent);
+        var sourceResolution = calculateSourceResolution(sourceProj, targetProj, targetCenter, targetResolution);
+        var errorThresholdInPixels = ERROR_THRESHOLD;
+        var triangulation = new Triangulation(sourceProj, targetProj, limitedTargetExtent, maxSourceExtent, sourceResolution * errorThresholdInPixels, targetResolution);
+        var sourceExtent = triangulation.calculateSourceExtent();
+        var sourceImage = getImageFunction(sourceExtent, sourceResolution, pixelRatio);
+        var state = sourceImage ? ImageState.IDLE : ImageState.EMPTY;
+        var sourcePixelRatio = sourceImage ? sourceImage.getPixelRatio() : 1;
+        _this = _super.call(this, targetExtent, targetResolution, sourcePixelRatio, state) || this;
+        /**
+         * @private
+         * @type {import("../proj/Projection.js").default}
+         */
+        _this.targetProj_ = targetProj;
+        /**
+         * @private
+         * @type {import("../extent.js").Extent}
+         */
+        _this.maxSourceExtent_ = maxSourceExtent;
+        /**
+         * @private
+         * @type {!import("./Triangulation.js").default}
+         */
+        _this.triangulation_ = triangulation;
+        /**
+         * @private
+         * @type {number}
+         */
+        _this.targetResolution_ = targetResolution;
+        /**
+         * @private
+         * @type {import("../extent.js").Extent}
+         */
+        _this.targetExtent_ = targetExtent;
+        /**
+         * @private
+         * @type {import("../ImageBase.js").default}
+         */
+        _this.sourceImage_ = sourceImage;
+        /**
+         * @private
+         * @type {number}
+         */
+        _this.sourcePixelRatio_ = sourcePixelRatio;
+        /**
+         * @private
+         * @type {HTMLCanvasElement}
+         */
+        _this.canvas_ = null;
+        /**
+         * @private
+         * @type {?import("../events.js").EventsKey}
+         */
+        _this.sourceListenerKey_ = null;
+        return _this;
+    }
+    /**
+     * @inheritDoc
+     */
+    ReprojImage.prototype.disposeInternal = function () {
+        if (this.state == ImageState.LOADING) {
+            this.unlistenSource_();
+        }
+        _super.prototype.disposeInternal.call(this);
+    };
+    /**
+     * @inheritDoc
+     */
+    ReprojImage.prototype.getImage = function () {
+        return this.canvas_;
+    };
+    /**
+     * @return {import("../proj/Projection.js").default} Projection.
+     */
+    ReprojImage.prototype.getProjection = function () {
+        return this.targetProj_;
+    };
+    /**
+     * @private
+     */
+    ReprojImage.prototype.reproject_ = function () {
+        var sourceState = this.sourceImage_.getState();
+        if (sourceState == ImageState.LOADED) {
+            var width = getWidth(this.targetExtent_) / this.targetResolution_;
+            var height = getHeight(this.targetExtent_) / this.targetResolution_;
+            this.canvas_ = render$6(width, height, this.sourcePixelRatio_, this.sourceImage_.getResolution(), this.maxSourceExtent_, this.targetResolution_, this.targetExtent_, this.triangulation_, [{
+                    extent: this.sourceImage_.getExtent(),
+                    image: this.sourceImage_.getImage()
+                }], 0);
+        }
+        this.state = sourceState;
+        this.changed();
+    };
+    /**
+     * @inheritDoc
+     */
+    ReprojImage.prototype.load = function () {
+        if (this.state == ImageState.IDLE) {
+            this.state = ImageState.LOADING;
+            this.changed();
+            var sourceState = this.sourceImage_.getState();
+            if (sourceState == ImageState.LOADED || sourceState == ImageState.ERROR) {
+                this.reproject_();
+            }
+            else {
+                this.sourceListenerKey_ = listen(this.sourceImage_, EventType.CHANGE, function (e) {
+                    var sourceState = this.sourceImage_.getState();
+                    if (sourceState == ImageState.LOADED || sourceState == ImageState.ERROR) {
+                        this.unlistenSource_();
+                        this.reproject_();
+                    }
+                }, this);
+                this.sourceImage_.load();
+            }
+        }
+    };
+    /**
+     * @private
+     */
+    ReprojImage.prototype.unlistenSource_ = function () {
+        unlistenByKey(/** @type {!import("../events.js").EventsKey} */ (this.sourceListenerKey_));
+        this.sourceListenerKey_ = null;
+    };
+    return ReprojImage;
+}(ImageBase));
+
+var __extends$1z = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+/**
+ * @enum {string}
+ */
+var ImageSourceEventType = {
+    /**
+     * Triggered when an image starts loading.
+     * @event module:ol/source/Image.ImageSourceEvent#imageloadstart
+     * @api
+     */
+    IMAGELOADSTART: 'imageloadstart',
+    /**
+     * Triggered when an image finishes loading.
+     * @event module:ol/source/Image.ImageSourceEvent#imageloadend
+     * @api
+     */
+    IMAGELOADEND: 'imageloadend',
+    /**
+     * Triggered if image loading results in an error.
+     * @event module:ol/source/Image.ImageSourceEvent#imageloaderror
+     * @api
+     */
+    IMAGELOADERROR: 'imageloaderror'
+};
+/**
+ * @classdesc
+ * Events emitted by {@link module:ol/source/Image~ImageSource} instances are instances of this
+ * type.
+ */
+var ImageSourceEvent = /** @class */ (function (_super) {
+    __extends$1z(ImageSourceEvent, _super);
+    /**
+     * @param {string} type Type.
+     * @param {import("../Image.js").default} image The image.
+     */
+    function ImageSourceEvent(type, image) {
+        var _this = _super.call(this, type) || this;
+        /**
+         * The image related to the event.
+         * @type {import("../Image.js").default}
+         * @api
+         */
+        _this.image = image;
+        return _this;
+    }
+    return ImageSourceEvent;
+}(BaseEvent));
+/**
+ * @typedef {Object} Options
+ * @property {import("./Source.js").AttributionLike} [attributions]
+ * @property {import("../proj.js").ProjectionLike} [projection]
+ * @property {Array<number>} [resolutions]
+ * @property {import("./State.js").default} [state]
+ */
+/**
+ * @classdesc
+ * Abstract base class; normally only used for creating subclasses and not
+ * instantiated in apps.
+ * Base class for sources providing a single image.
+ * @abstract
+ * @fires module:ol/source/Image.ImageSourceEvent
+ * @api
+ */
+var ImageSource = /** @class */ (function (_super) {
+    __extends$1z(ImageSource, _super);
+    /**
+     * @param {Options} options Single image source options.
+     */
+    function ImageSource(options) {
+        var _this = _super.call(this, {
+            attributions: options.attributions,
+            projection: options.projection,
+            state: options.state
+        }) || this;
+        /**
+         * @private
+         * @type {Array<number>}
+         */
+        _this.resolutions_ = options.resolutions !== undefined ?
+            options.resolutions : null;
+        /**
+         * @private
+         * @type {import("../reproj/Image.js").default}
+         */
+        _this.reprojectedImage_ = null;
+        /**
+         * @private
+         * @type {number}
+         */
+        _this.reprojectedRevision_ = 0;
+        return _this;
+    }
+    /**
+     * @return {Array<number>} Resolutions.
+     * @override
+     */
+    ImageSource.prototype.getResolutions = function () {
+        return this.resolutions_;
+    };
+    /**
+     * @protected
+     * @param {number} resolution Resolution.
+     * @return {number} Resolution.
+     */
+    ImageSource.prototype.findNearestResolution = function (resolution) {
+        if (this.resolutions_) {
+            var idx = linearFindNearest(this.resolutions_, resolution, 0);
+            resolution = this.resolutions_[idx];
+        }
+        return resolution;
+    };
+    /**
+     * @param {import("../extent.js").Extent} extent Extent.
+     * @param {number} resolution Resolution.
+     * @param {number} pixelRatio Pixel ratio.
+     * @param {import("../proj/Projection.js").default} projection Projection.
+     * @return {import("../ImageBase.js").default} Single image.
+     */
+    ImageSource.prototype.getImage = function (extent, resolution, pixelRatio, projection) {
+        var sourceProjection = this.getProjection();
+        if (
+            !sourceProjection ||
+            !projection ||
+            equivalent(sourceProjection, projection)) {
+            if (sourceProjection) {
+                projection = sourceProjection;
+            }
+            return this.getImageInternal(extent, resolution, pixelRatio, projection);
+        }
+        else {
+            if (this.reprojectedImage_) {
+                if (this.reprojectedRevision_ == this.getRevision() &&
+                    equivalent(this.reprojectedImage_.getProjection(), projection) &&
+                    this.reprojectedImage_.getResolution() == resolution &&
+                    equals$1(this.reprojectedImage_.getExtent(), extent)) {
+                    return this.reprojectedImage_;
+                }
+                this.reprojectedImage_.dispose();
+                this.reprojectedImage_ = null;
+            }
+            this.reprojectedImage_ = new ReprojImage(sourceProjection, projection, extent, resolution, pixelRatio, function (extent, resolution, pixelRatio) {
+                return this.getImageInternal(extent, resolution, pixelRatio, sourceProjection);
+            }.bind(this));
+            this.reprojectedRevision_ = this.getRevision();
+            return this.reprojectedImage_;
+        }
+    };
+    /**
+     * @abstract
+     * @param {import("../extent.js").Extent} extent Extent.
+     * @param {number} resolution Resolution.
+     * @param {number} pixelRatio Pixel ratio.
+     * @param {import("../proj/Projection.js").default} projection Projection.
+     * @return {import("../ImageBase.js").default} Single image.
+     * @protected
+     */
+    ImageSource.prototype.getImageInternal = function (extent, resolution, pixelRatio, projection) {
+        return abstract();
+    };
+    /**
+     * Handle image change events.
+     * @param {import("../events/Event.js").default} event Event.
+     * @protected
+     */
+    ImageSource.prototype.handleImageChange = function (event) {
+        var image = /** @type {import("../Image.js").default} */ (event.target);
+        switch (image.getState()) {
+            case ImageState.LOADING:
+                this.loading = true;
+                this.dispatchEvent(new ImageSourceEvent(ImageSourceEventType.IMAGELOADSTART, image));
+                break;
+            case ImageState.LOADED:
+                this.loading = false;
+                this.dispatchEvent(new ImageSourceEvent(ImageSourceEventType.IMAGELOADEND, image));
+                break;
+            case ImageState.ERROR:
+                this.loading = false;
+                this.dispatchEvent(new ImageSourceEvent(ImageSourceEventType.IMAGELOADERROR, image));
+                break;
+            default:
+            // pass
+        }
+    };
+    return ImageSource;
+}(Source));
+/**
+ * Default image load function for image sources that use import("../Image.js").Image image
+ * instances.
+ * @param {import("../Image.js").default} image Image.
+ * @param {string} src Source.
+ */
+function defaultImageLoadFunction(image, src) {
+    /** @type {HTMLImageElement|HTMLVideoElement} */ (image.getImage()).src = src;
+}
+
+/**
+ * @module ol/source/WMSServerType
+ */
+/**
+ * Available server types: `'carmentaserver'`, `'geoserver'`, `'mapserver'`,
+ *     `'qgis'`. These are servers that have vendor parameters beyond the WMS
+ *     specification that OpenLayers can make use of.
+ * @enum {string}
+ */
+var WMSServerType = {
+    /**
+     * HiDPI support for [Carmenta Server](https://www.carmenta.com/en/products/carmenta-server)
+     * @api
+     */
+    CARMENTA_SERVER: 'carmentaserver',
+    /**
+     * HiDPI support for [GeoServer](https://geoserver.org/)
+     * @api
+     */
+    GEOSERVER: 'geoserver',
+    /**
+     * HiDPI support for [MapServer](https://mapserver.org/)
+     * @api
+     */
+    MAPSERVER: 'mapserver',
+    /**
+     * HiDPI support for [QGIS](https://qgis.org/)
+     * @api
+     */
+    QGIS: 'qgis'
+};
+
+/**
+ * @module ol/uri
+ */
+/**
+ * Appends query parameters to a URI.
+ *
+ * @param {string} uri The original URI, which may already have query data.
+ * @param {!Object} params An object where keys are URI-encoded parameter keys,
+ *     and the values are arbitrary types or arrays.
+ * @return {string} The new URI.
+ */
+function appendParams(uri, params) {
+    var keyParams = [];
+    // Skip any null or undefined parameter values
+    Object.keys(params).forEach(function (k) {
+        if (params[k] !== null && params[k] !== undefined) {
+            keyParams.push(k + '=' + encodeURIComponent(params[k]));
+        }
+    });
+    var qs = keyParams.join('&');
+    // remove any trailing ? or &
+    uri = uri.replace(/[?&]$/, '');
+    // append ? or & depending on whether uri has existing parameters
+    uri = uri.indexOf('?') === -1 ? uri + '?' : uri + '&';
+    return uri + qs;
+}
+
+/**
+ * @module ol/source/ImageWMS
+ */
+var __extends$1A = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+/**
+ * @const
+ * @type {import("../size.js").Size}
+ */
+var GETFEATUREINFO_IMAGE_SIZE = [101, 101];
+/**
+ * @typedef {Object} Options
+ * @property {import("./Source.js").AttributionLike} [attributions] Attributions.
+ * @property {null|string} [crossOrigin] The `crossOrigin` attribute for loaded images.  Note that
+ * you must provide a `crossOrigin` value if you want to access pixel data with the Canvas renderer.
+ * See https://developer.mozilla.org/en-US/docs/Web/HTML/CORS_enabled_image for more detail.
+ * @property {boolean} [hidpi=true] Use the `ol/Map#pixelRatio` value when requesting
+ * the image from the remote server.
+ * @property {import("./WMSServerType.js").default|string} [serverType] The type of
+ * the remote WMS server: `mapserver`, `geoserver` or `qgis`. Only needed if `hidpi` is `true`.
+ * @property {import("../Image.js").LoadFunction} [imageLoadFunction] Optional function to load an image given a URL.
+ * @property {Object<string,*>} params WMS request parameters.
+ * At least a `LAYERS` param is required. `STYLES` is
+ * `''` by default. `VERSION` is `1.3.0` by default. `WIDTH`, `HEIGHT`, `BBOX`
+ * and `CRS` (`SRS` for WMS version < 1.3.0) will be set dynamically.
+ * @property {import("../proj.js").ProjectionLike} [projection] Projection. Default is the view projection.
+ * @property {number} [ratio=1.5] Ratio. `1` means image requests are the size of the map viewport, `2` means
+ * twice the width and height of the map viewport, and so on. Must be `1` or
+ * higher.
+ * @property {Array<number>} [resolutions] Resolutions.
+ * If specified, requests will be made for these resolutions only.
+ * @property {string} url WMS service URL.
+ */
+/**
+ * @classdesc
+ * Source for WMS servers providing single, untiled images.
+ *
+ * @fires module:ol/source/Image.ImageSourceEvent
+ * @api
+ */
+var ImageWMS = /** @class */ (function (_super) {
+    __extends$1A(ImageWMS, _super);
+    /**
+     * @param {Options=} [opt_options] ImageWMS options.
+     */
+    function ImageWMS(opt_options) {
+        var _this = this;
+        var options = opt_options ? opt_options : {};
+        _this = _super.call(this, {
+            attributions: options.attributions,
+            projection: options.projection,
+            resolutions: options.resolutions
+        }) || this;
+        /**
+         * @private
+         * @type {?string}
+         */
+        _this.crossOrigin_ =
+            options.crossOrigin !== undefined ? options.crossOrigin : null;
+        /**
+         * @private
+         * @type {string|undefined}
+         */
+        _this.url_ = options.url;
+        /**
+         * @private
+         * @type {import("../Image.js").LoadFunction}
+         */
+        _this.imageLoadFunction_ = options.imageLoadFunction !== undefined ?
+            options.imageLoadFunction : defaultImageLoadFunction;
+        /**
+         * @private
+         * @type {!Object}
+         */
+        _this.params_ = options.params || {};
+        /**
+         * @private
+         * @type {boolean}
+         */
+        _this.v13_ = true;
+        _this.updateV13_();
+        /**
+         * @private
+         * @type {import("./WMSServerType.js").default|undefined}
+         */
+        _this.serverType_ = /** @type {import("./WMSServerType.js").default|undefined} */ (options.serverType);
+        /**
+         * @private
+         * @type {boolean}
+         */
+        _this.hidpi_ = options.hidpi !== undefined ? options.hidpi : true;
+        /**
+         * @private
+         * @type {import("../Image.js").default}
+         */
+        _this.image_ = null;
+        /**
+         * @private
+         * @type {import("../size.js").Size}
+         */
+        _this.imageSize_ = [0, 0];
+        /**
+         * @private
+         * @type {number}
+         */
+        _this.renderedRevision_ = 0;
+        /**
+         * @private
+         * @type {number}
+         */
+        _this.ratio_ = options.ratio !== undefined ? options.ratio : 1.5;
+        return _this;
+    }
+    /**
+     * Return the GetFeatureInfo URL for the passed coordinate, resolution, and
+     * projection. Return `undefined` if the GetFeatureInfo URL cannot be
+     * constructed.
+     * @param {import("../coordinate.js").Coordinate} coordinate Coordinate.
+     * @param {number} resolution Resolution.
+     * @param {import("../proj.js").ProjectionLike} projection Projection.
+     * @param {!Object} params GetFeatureInfo params. `INFO_FORMAT` at least should
+     *     be provided. If `QUERY_LAYERS` is not provided then the layers specified
+     *     in the `LAYERS` parameter will be used. `VERSION` should not be
+     *     specified here.
+     * @return {string|undefined} GetFeatureInfo URL.
+     * @api
+     */
+    ImageWMS.prototype.getFeatureInfoUrl = function (coordinate, resolution, projection, params) {
+        if (this.url_ === undefined) {
+            return undefined;
+        }
+        var projectionObj = get$2(projection);
+        var sourceProjectionObj = this.getProjection();
+        if (sourceProjectionObj && sourceProjectionObj !== projectionObj) {
+            resolution = calculateSourceResolution(sourceProjectionObj, projectionObj, coordinate, resolution);
+            coordinate = transform(coordinate, projectionObj, sourceProjectionObj);
+        }
+        var extent = getForViewAndSize(coordinate, resolution, 0, GETFEATUREINFO_IMAGE_SIZE);
+        var baseParams = {
+            'SERVICE': 'WMS',
+            'VERSION': DEFAULT_WMS_VERSION,
+            'REQUEST': 'GetFeatureInfo',
+            'FORMAT': 'image/png',
+            'TRANSPARENT': true,
+            'QUERY_LAYERS': this.params_['LAYERS']
+        };
+        assign(baseParams, this.params_, params);
+        var x = Math.floor((coordinate[0] - extent[0]) / resolution);
+        var y = Math.floor((extent[3] - coordinate[1]) / resolution);
+        baseParams[this.v13_ ? 'I' : 'X'] = x;
+        baseParams[this.v13_ ? 'J' : 'Y'] = y;
+        return this.getRequestUrl_(extent, GETFEATUREINFO_IMAGE_SIZE, 1, sourceProjectionObj || projectionObj, baseParams);
+    };
+    /**
+     * Return the GetLegendGraphic URL, optionally optimized for the passed
+     * resolution and possibly including any passed specific parameters. Returns
+     * `undefined` if the GetLegendGraphic URL cannot be constructed.
+     *
+     * @param {number} [resolution] Resolution. If set to undefined, `SCALE`
+     *     will not be calculated and included in URL.
+     * @param {Object} [params] GetLegendGraphic params. If `LAYER` is set, the
+     *     request is generated for this wms layer, else it will try to use the
+     *     configured wms layer. Default `FORMAT` is `image/png`.
+     *     `VERSION` should not be specified here.
+     * @return {string|undefined} GetLegendGraphic URL.
+     * @api
+     */
+    ImageWMS.prototype.getLegendUrl = function (resolution, params) {
+        if (this.url_ === undefined) {
+            return undefined;
+        }
+        var baseParams = {
+            'SERVICE': 'WMS',
+            'VERSION': DEFAULT_WMS_VERSION,
+            'REQUEST': 'GetLegendGraphic',
+            'FORMAT': 'image/png'
+        };
+        if (params === undefined || params['LAYER'] === undefined) {
+            var layers = this.params_.LAYERS;
+            var isSingleLayer = !Array.isArray(layers) || layers.length === 1;
+            if (!isSingleLayer) {
+                return undefined;
+            }
+            baseParams['LAYER'] = layers;
+        }
+        if (resolution !== undefined) {
+            var mpu = this.getProjection() ? this.getProjection().getMetersPerUnit() : 1;
+            var dpi = 25.4 / 0.28;
+            var inchesPerMeter = 39.37;
+            baseParams['SCALE'] = resolution * mpu * inchesPerMeter * dpi;
+        }
+        assign(baseParams, params);
+        return appendParams(/** @type {string} */ (this.url_), baseParams);
+    };
+    /**
+     * Get the user-provided params, i.e. those passed to the constructor through
+     * the "params" option, and possibly updated using the updateParams method.
+     * @return {Object} Params.
+     * @api
+     */
+    ImageWMS.prototype.getParams = function () {
+        return this.params_;
+    };
+    /**
+     * @inheritDoc
+     */
+    ImageWMS.prototype.getImageInternal = function (extent, resolution, pixelRatio, projection) {
+        if (this.url_ === undefined) {
+            return null;
+        }
+        resolution = this.findNearestResolution(resolution);
+        if (pixelRatio != 1 && (!this.hidpi_ || this.serverType_ === undefined)) {
+            pixelRatio = 1;
+        }
+        var imageResolution = resolution / pixelRatio;
+        var center = getCenter(extent);
+        var viewWidth = Math.ceil(getWidth(extent) / imageResolution);
+        var viewHeight = Math.ceil(getHeight(extent) / imageResolution);
+        var viewExtent = getForViewAndSize(center, imageResolution, 0, [viewWidth, viewHeight]);
+        var requestWidth = Math.ceil(this.ratio_ * getWidth(extent) / imageResolution);
+        var requestHeight = Math.ceil(this.ratio_ * getHeight(extent) / imageResolution);
+        var requestExtent = getForViewAndSize(center, imageResolution, 0, [requestWidth, requestHeight]);
+        var image = this.image_;
+        if (image &&
+            this.renderedRevision_ == this.getRevision() &&
+            image.getResolution() == resolution &&
+            image.getPixelRatio() == pixelRatio &&
+            containsExtent(image.getExtent(), viewExtent)) {
+            return image;
+        }
+        var params = {
+            'SERVICE': 'WMS',
+            'VERSION': DEFAULT_WMS_VERSION,
+            'REQUEST': 'GetMap',
+            'FORMAT': 'image/png',
+            'TRANSPARENT': true
+        };
+        assign(params, this.params_);
+        this.imageSize_[0] = Math.round(getWidth(requestExtent) / imageResolution);
+        this.imageSize_[1] = Math.round(getHeight(requestExtent) / imageResolution);
+        var url = this.getRequestUrl_(requestExtent, this.imageSize_, pixelRatio, projection, params);
+        this.image_ = new ImageWrapper(requestExtent, resolution, pixelRatio, url, this.crossOrigin_, this.imageLoadFunction_);
+        this.renderedRevision_ = this.getRevision();
+        this.image_.addEventListener(EventType.CHANGE, this.handleImageChange.bind(this));
+        return this.image_;
+    };
+    /**
+     * Return the image load function of the source.
+     * @return {import("../Image.js").LoadFunction} The image load function.
+     * @api
+     */
+    ImageWMS.prototype.getImageLoadFunction = function () {
+        return this.imageLoadFunction_;
+    };
+    /**
+     * @param {import("../extent.js").Extent} extent Extent.
+     * @param {import("../size.js").Size} size Size.
+     * @param {number} pixelRatio Pixel ratio.
+     * @param {import("../proj/Projection.js").default} projection Projection.
+     * @param {Object} params Params.
+     * @return {string} Request URL.
+     * @private
+     */
+    ImageWMS.prototype.getRequestUrl_ = function (extent, size, pixelRatio, projection, params) {
+        assert(this.url_ !== undefined, 9); // `url` must be configured or set using `#setUrl()`
+        params[this.v13_ ? 'CRS' : 'SRS'] = projection.getCode();
+        if (!('STYLES' in this.params_)) {
+            params['STYLES'] = '';
+        }
+        if (pixelRatio != 1) {
+            switch (this.serverType_) {
+                case WMSServerType.GEOSERVER:
+                    var dpi = (90 * pixelRatio + 0.5) | 0;
+                    if ('FORMAT_OPTIONS' in params) {
+                        params['FORMAT_OPTIONS'] += ';dpi:' + dpi;
+                    }
+                    else {
+                        params['FORMAT_OPTIONS'] = 'dpi:' + dpi;
+                    }
+                    break;
+                case WMSServerType.MAPSERVER:
+                    params['MAP_RESOLUTION'] = 90 * pixelRatio;
+                    break;
+                case WMSServerType.CARMENTA_SERVER:
+                case WMSServerType.QGIS:
+                    params['DPI'] = 90 * pixelRatio;
+                    break;
+                default:
+                    assert(false, 8); // Unknown `serverType` configured
+                    break;
+            }
+        }
+        params['WIDTH'] = size[0];
+        params['HEIGHT'] = size[1];
+        var axisOrientation = projection.getAxisOrientation();
+        var bbox;
+        if (this.v13_ && axisOrientation.substr(0, 2) == 'ne') {
+            bbox = [extent[1], extent[0], extent[3], extent[2]];
+        }
+        else {
+            bbox = extent;
+        }
+        params['BBOX'] = bbox.join(',');
+        return appendParams(/** @type {string} */ (this.url_), params);
+    };
+    /**
+     * Return the URL used for this WMS source.
+     * @return {string|undefined} URL.
+     * @api
+     */
+    ImageWMS.prototype.getUrl = function () {
+        return this.url_;
+    };
+    /**
+     * Set the image load function of the source.
+     * @param {import("../Image.js").LoadFunction} imageLoadFunction Image load function.
+     * @api
+     */
+    ImageWMS.prototype.setImageLoadFunction = function (imageLoadFunction) {
+        this.image_ = null;
+        this.imageLoadFunction_ = imageLoadFunction;
+        this.changed();
+    };
+    /**
+     * Set the URL to use for requests.
+     * @param {string|undefined} url URL.
+     * @api
+     */
+    ImageWMS.prototype.setUrl = function (url) {
+        if (url != this.url_) {
+            this.url_ = url;
+            this.image_ = null;
+            this.changed();
+        }
+    };
+    /**
+     * Update the user-provided params.
+     * @param {Object} params Params.
+     * @api
+     */
+    ImageWMS.prototype.updateParams = function (params) {
+        assign(this.params_, params);
+        this.updateV13_();
+        this.image_ = null;
+        this.changed();
+    };
+    /**
+     * @private
+     */
+    ImageWMS.prototype.updateV13_ = function () {
+        var version = this.params_['VERSION'] || DEFAULT_WMS_VERSION;
+        this.v13_ = compareVersions(version, '1.3') >= 0;
+    };
+    return ImageWMS;
+}(ImageSource));
+
+var __extends$1B = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+/**
+ * @typedef {Object} Options
+ * @property {string} [className='ol-layer'] A CSS class name to set to the layer element.
+ * @property {number} [opacity=1] Opacity (0, 1).
+ * @property {boolean} [visible=true] Visibility.
+ * @property {import("../extent.js").Extent} [extent] The bounding extent for layer rendering.  The layer will not be
+ * rendered outside of this extent.
+ * @property {number} [zIndex] The z-index for layer rendering.  At rendering time, the layers
+ * will be ordered, first by Z-index and then by position. When `undefined`, a `zIndex` of 0 is assumed
+ * for layers that are added to the map's `layers` collection, or `Infinity` when the layer's `setMap()`
+ * method was used.
+ * @property {number} [minResolution] The minimum resolution (inclusive) at which this layer will be
+ * visible.
+ * @property {number} [maxResolution] The maximum resolution (exclusive) below which this layer will
+ * be visible.
+ * @property {number} [minZoom] The minimum view zoom level (exclusive) above which this layer will be
+ * visible.
+ * @property {number} [maxZoom] The maximum view zoom level (inclusive) at which this layer will
+ * be visible.
+ * @property {import("../PluggableMap.js").default} [map] Sets the layer as overlay on a map. The map will not manage
+ * this layer in its layers collection, and the layer will be rendered on top. This is useful for
+ * temporary layers. The standard way to add a layer to a map and have it managed by the map is to
+ * use {@link module:ol/Map#addLayer}.
+ * @property {import("../source/Image.js").default} [source] Source for this layer.
+ */
+/**
+ * @classdesc
+ * Server-rendered images that are available for arbitrary extents and
+ * resolutions.
+ * Note that any property set in the options is set as a {@link module:ol/Object~BaseObject}
+ * property on the layer object; for example, setting `title: 'My Title'` in the
+ * options means that `title` is observable, and has get/set accessors.
+ *
+ * @extends {Layer<import("../source/Image.js").default>}
+ * @api
+ */
+var BaseImageLayer = /** @class */ (function (_super) {
+    __extends$1B(BaseImageLayer, _super);
+    /**
+     * @param {Options=} opt_options Layer options.
+     */
+    function BaseImageLayer(opt_options) {
+        var _this = this;
+        var options = opt_options ? opt_options : {};
+        _this = _super.call(this, options) || this;
+        return _this;
+    }
+    return BaseImageLayer;
+}(Layer));
+
+var __extends$1C = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+/**
+ * @classdesc
+ * Canvas renderer for image layers.
+ * @api
+ */
+var CanvasImageLayerRenderer = /** @class */ (function (_super) {
+    __extends$1C(CanvasImageLayerRenderer, _super);
+    /**
+     * @param {import("../../layer/Image.js").default} imageLayer Image layer.
+     */
+    function CanvasImageLayerRenderer(imageLayer) {
+        var _this = _super.call(this, imageLayer) || this;
+        /**
+         * @protected
+         * @type {?import("../../ImageBase.js").default}
+         */
+        _this.image_ = null;
+        return _this;
+    }
+    /**
+     * @inheritDoc
+     */
+    CanvasImageLayerRenderer.prototype.getImage = function () {
+        return !this.image_ ? null : this.image_.getImage();
+    };
+    /**
+     * @inheritDoc
+     */
+    CanvasImageLayerRenderer.prototype.prepareFrame = function (frameState) {
+        var layerState = frameState.layerStatesArray[frameState.layerIndex];
+        var pixelRatio = frameState.pixelRatio;
+        var viewState = frameState.viewState;
+        var viewResolution = viewState.resolution;
+        var imageSource = this.getLayer().getSource();
+        var hints = frameState.viewHints;
+        var renderedExtent = frameState.extent;
+        if (layerState.extent !== undefined) {
+            renderedExtent = getIntersection(renderedExtent, fromUserExtent(layerState.extent, viewState.projection));
+        }
+        if (!hints[ViewHint.ANIMATING] && !hints[ViewHint.INTERACTING] && !isEmpty$1(renderedExtent)) {
+            if (imageSource) {
+                var projection = viewState.projection;
+                var image = imageSource.getImage(renderedExtent, viewResolution, pixelRatio, projection);
+                if (image && this.loadImage(image)) {
+                    this.image_ = image;
+                }
+            }
+            else {
+                this.image_ = null;
+            }
+        }
+        return !!this.image_;
+    };
+    /**
+     * @inheritDoc
+     */
+    CanvasImageLayerRenderer.prototype.renderFrame = function (frameState, target) {
+        var image = this.image_;
+        var imageExtent = image.getExtent();
+        var imageResolution = image.getResolution();
+        var imagePixelRatio = image.getPixelRatio();
+        var layerState = frameState.layerStatesArray[frameState.layerIndex];
+        var pixelRatio = frameState.pixelRatio;
+        var viewState = frameState.viewState;
+        var viewCenter = viewState.center;
+        var viewResolution = viewState.resolution;
+        var size = frameState.size;
+        var scale = pixelRatio * imageResolution / (viewResolution * imagePixelRatio);
+        var width = Math.round(size[0] * pixelRatio);
+        var height = Math.round(size[1] * pixelRatio);
+        var rotation = viewState.rotation;
+        if (rotation) {
+            var size_1 = Math.round(Math.sqrt(width * width + height * height));
+            width = size_1;
+            height = size_1;
+        }
+        // set forward and inverse pixel transforms
+        compose(this.pixelTransform, frameState.size[0] / 2, frameState.size[1] / 2, 1 / pixelRatio, 1 / pixelRatio, rotation, -width / 2, -height / 2);
+        makeInverse(this.inversePixelTransform, this.pixelTransform);
+        var canvasTransform = createTransformString(this.pixelTransform);
+        this.useContainer(target, canvasTransform, layerState.opacity);
+        var context = this.context;
+        var canvas = context.canvas;
+        if (canvas.width != width || canvas.height != height) {
+            canvas.width = width;
+            canvas.height = height;
+        }
+        else if (!this.containerReused) {
+            context.clearRect(0, 0, width, height);
+        }
+        // clipped rendering if layer extent is set
+        var clipped = false;
+        if (layerState.extent) {
+            var layerExtent = fromUserExtent(layerState.extent, viewState.projection);
+            clipped = !containsExtent(layerExtent, frameState.extent) && intersects(layerExtent, frameState.extent);
+            if (clipped) {
+                this.clipUnrotated(context, frameState, layerExtent);
+            }
+        }
+        var img = image.getImage();
+        var transform = compose(this.tempTransform_, width / 2, height / 2, scale, scale, 0, imagePixelRatio * (imageExtent[0] - viewCenter[0]) / imageResolution, imagePixelRatio * (viewCenter[1] - imageExtent[3]) / imageResolution);
+        this.renderedResolution = imageResolution * pixelRatio / imagePixelRatio;
+        var dx = transform[4];
+        var dy = transform[5];
+        var dw = img.width * transform[0];
+        var dh = img.height * transform[3];
+        this.preRender(context, frameState);
+        if (dw >= 0.5 && dh >= 0.5) {
+            var opacity = layerState.opacity;
+            var previousAlpha = void 0;
+            if (opacity !== 1) {
+                previousAlpha = this.context.globalAlpha;
+                this.context.globalAlpha = opacity;
+            }
+            this.context.drawImage(img, 0, 0, +img.width, +img.height, Math.round(dx), Math.round(dy), Math.round(dw), Math.round(dh));
+            if (opacity !== 1) {
+                this.context.globalAlpha = previousAlpha;
+            }
+        }
+        this.postRender(context, frameState);
+        if (clipped) {
+            context.restore();
+        }
+        if (canvasTransform !== canvas.style.transform) {
+            canvas.style.transform = canvasTransform;
+        }
+        return this.container;
+    };
+    return CanvasImageLayerRenderer;
+}(CanvasLayerRenderer));
+
+var __extends$1D = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+/**
+ * @classdesc
+ * Server-rendered images that are available for arbitrary extents and
+ * resolutions.
+ * Note that any property set in the options is set as a {@link module:ol/Object~BaseObject}
+ * property on the layer object; for example, setting `title: 'My Title'` in the
+ * options means that `title` is observable, and has get/set accessors.
+ *
+ * @api
+ */
+var ImageLayer = /** @class */ (function (_super) {
+    __extends$1D(ImageLayer, _super);
+    /**
+     * @param {import("./BaseImage.js").Options=} opt_options Layer options.
+     */
+    function ImageLayer(opt_options) {
+        return _super.call(this, opt_options) || this;
+    }
+    /**
+     * Create a renderer for this layer.
+     * @return {import("../renderer/Layer.js").default} A layer renderer.
+     * @protected
+     */
+    ImageLayer.prototype.createRenderer = function () {
+        return new CanvasImageLayerRenderer(this);
+    };
+    return ImageLayer;
+}(BaseImageLayer));
+
 class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
         super(targetEl, config);
@@ -40752,7 +41832,16 @@ class ZeppelinOpenLayers extends Visualization {
                     extractGeometryName: true,
                 });
                 if (layer.type === "raster") {
-                    throw new Error("raster type not implemented");
+                    data.layer = new ImageLayer({
+                        source: new ImageWMS({
+                            url: layer.url,
+                            params: {
+                                LAYERS: layer.name,
+                            },
+                            ratio: 1,
+                            serverType: 'geoserver',
+                        }),
+                    });
                 } else if (layer.type === "vector") {
                     /** @type {ConstructorParameters<typeof import('ol/source/Vector').default>[0]} */
                     let sourceParams;
