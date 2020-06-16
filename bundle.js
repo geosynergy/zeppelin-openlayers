@@ -40713,16 +40713,37 @@ class ZeppelinOpenLayers extends Visualization {
                     url: layer.url,
                     type: layer.type,
                 };
+                const geoJson = new GeoJSON({
+                    extractGeometryName: true,
+                });
                 if (layer.type === "raster") {
                     throw new Error("raster type not implemented");
                 } else if (layer.type === "vector") {
-                    data.layer = new VectorLayer({
-                        source: new VectorSource({
-                            format: new GeoJSON({
-                                extractGeometryName: true,
-                            }),
+                    /** @type {ConstructorParameters<typeof import('ol/source/Vector').default>[0]} */
+                    let sourceParams;
+                    try {
+                        const info = JSON.parse(layer.url);
+                        if (Array.isArray(info)) {
+                            sourceParams = {
+                                features: geoJson.readFeaturesFromObject(info),
+                            };
+                        } else if (typeof info === 'object' && info !== null) {
+                            sourceParams = {
+                                features: [
+                                    geoJson.readFeatureFromObject(info),
+                                ],
+                            };
+                        } else {
+                            throw new Error("Not a valid featureset");
+                        }
+                    } catch (e) {
+                        sourceParams = new VectorSource({
+                            format: geoJson,
                             url: data.url,
-                        }),
+                        });
+                    }
+                    data.layer = new VectorLayer({
+                        source: sourceParams,
                         style: new Style({
                             stroke: new Stroke({
                                 color: layer.colour || 'rgba(0, 0, 255, 1.0)',
