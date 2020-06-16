@@ -29136,17 +29136,6 @@ function xhr(url, format) {
 function all(extent, resolution) {
     return [[-Infinity, -Infinity, Infinity, Infinity]];
 }
-/**
- * Strategy function for loading features based on the view's extent and
- * resolution.
- * @param {import("./extent.js").Extent} extent Extent.
- * @param {number} resolution Resolution.
- * @return {Array<import("./extent.js").Extent>} Extents.
- * @api
- */
-function bbox(extent, resolution) {
-    return [extent];
-}
 
 var __extends$1a = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
@@ -40641,11 +40630,13 @@ class ZeppelinOpenLayers extends Visualization {
     
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
         console.log(this, targetEl, config);
+        /** @type {import('ol').Map} */
         this.map = new Map({
             target: targetEl[0],
             view: new View({
-                center: [0, 0],
-                zoom: 2,
+                center: [592260, 7.66872e+06],
+                zoom: 8,
+                projection: "EPSG:28355",
             }),
             layers: [
                 new TileLayer({
@@ -40731,11 +40722,12 @@ class ZeppelinOpenLayers extends Visualization {
                 } else if (layer.type === "vector") {
                     data.layer = new VectorLayer({
                         source: new VectorSource({
-                            format: new GeoJSON(),
-                            url: (extent) => {
-                                return data.url.replace(/\{bbox\}/gi, extent.join(','));
-                            },
-                            strategy: bbox,
+                            format: new GeoJSON({
+                                dataProjection: "EPSG:28355",
+                                extractGeometryName: true,
+                            }),
+                            url: data.url,
+                            strategy: all,
                         }),
                         style: lineStyle,
                     });
@@ -40765,22 +40757,11 @@ class ZeppelinOpenLayers extends Visualization {
         }
     }
 
-    showError(error) {
-      return; // this is destructive. Let's not.
-      this.targetEl[0].innerHTML = `
-          <div style="margin-top: 60px; text-align: center; font-weight: 100">
-              <span style="font-size:30px;">
-                  ${error.message}
-              </span>
-          </div>`;
-    }
-
     render(tableData) {
         try {
             this.setLayers(this.createMapDataModel(tableData).rows);
         } catch (e) {
             console.error(e);
-            this.showError(e);
         }
     }
 }
