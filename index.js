@@ -77,7 +77,7 @@ export default class ZeppelinOpenLayers extends Visualization {
       const typeIndex = getColumnIndex(config, 'type');
   
       const rows = data.rows.filter(row=>{
-          return typeof row[nameIndex] === 'string' && typeof row[urlIndex] === 'string' && typeof row[typeIndex] === 'string';
+          return typeof row[nameIndex] === 'string' && typeof row[urlIndex] === 'string' && typeof row[typeIndex] === 'string' && row[urlIndex] && row[typeIndex];
       }).map(tableRow => {
         const name = tableRow[nameIndex];
         const url = tableRow[urlIndex];
