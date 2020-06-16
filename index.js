@@ -146,8 +146,10 @@ export default class ZeppelinOpenLayers extends Visualization {
             }
             if (was_match_found && !availableLayer.is_enabled) {
                 this.map.addLayer(availableLayer.layer);
+                availableLayer.is_enabled = true;
             } else if (!was_match_found && availableLayer.is_enabled) {
                 this.map.removeLayer(availableLayer.layer);
+                availableLayer.is_enabled = false;
             }
         }
     }
