@@ -164,7 +164,7 @@ export default class ZeppelinOpenLayers extends Visualization {
 
     render(tableData) {
         try {
-            this.setLayers(this.createMapDataModel(tableData));
+            this.setLayers(this.createMapDataModel(tableData).rows);
         } catch (e) {
             console.error(e);
             this.showError(e);
