@@ -40611,13 +40611,6 @@ var TileLayer = /** @class */ (function (_super) {
     return TileLayer;
 }(BaseTileLayer));
 
-const lineStyle = new Style({
-    stroke: new Stroke({
-        color: 'rgba(0, 0, 255, 1.0)',
-        width: 2,
-    }),
-});
-
 class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
         super(targetEl, config);
@@ -40626,6 +40619,7 @@ class ZeppelinOpenLayers extends Visualization {
           { name: 'url', tooltip: 'layer url' },
           { name: 'name', tooltip: 'layer name' },
           { name: 'type', tooltip: 'layer type' },
+          { name: 'colour', tooltip: 'vector colour' },
         ];
     
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
@@ -40643,7 +40637,7 @@ class ZeppelinOpenLayers extends Visualization {
                 }),
             ],
         });
-        /** @type {{name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
+        /** @type {{colour:string;name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
         this.layersAvailable = [];
     }
 
@@ -40676,6 +40670,7 @@ class ZeppelinOpenLayers extends Visualization {
       const urlIndex = getColumnIndex(config, 'url');
       const nameIndex = getColumnIndex(config, 'name', true);
       const typeIndex = getColumnIndex(config, 'type');
+      const colourIndex = getColumnIndex(config, 'colour', true);
   
       const rows = data.rows.filter(row=>{
           return typeof row[nameIndex] === 'string' && typeof row[urlIndex] === 'string' && typeof row[typeIndex] === 'string' && row[urlIndex] && row[typeIndex];
@@ -40683,10 +40678,12 @@ class ZeppelinOpenLayers extends Visualization {
         const name = tableRow[nameIndex];
         const url = tableRow[urlIndex];
         const type = tableRow[typeIndex];
+        const colour = tableRow[colourIndex] || 'rgba(0, 0, 255, 1.0)';
         return {
             name,
             url,
             type,
+            colour,
         };
       });
   
@@ -40695,7 +40692,7 @@ class ZeppelinOpenLayers extends Visualization {
       };
     }
 
-    /** @param {{name:string;url:string;type:"raster"|"vector"}[]} layers */
+    /** @param {{name:string;url:string;type:"raster"|"vector";colour:string;}[]} layers */
     setLayers(layers) {
         this.selectedLayers = layers;
         const layersAvailable = this.layersAvailable;
@@ -40726,7 +40723,11 @@ class ZeppelinOpenLayers extends Visualization {
                             }),
                             url: data.url,
                         }),
-                        style: lineStyle,
+                        style: new Style({
+                            stroke: new Stroke({
+                                color: layer.colour || 'rgba(0, 0, 255, 1.0)',
+                            }),
+                        }),
                     });
                 } else {
                     throw new Error("Layer type not recognised.");
