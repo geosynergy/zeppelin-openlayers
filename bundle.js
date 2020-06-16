@@ -40142,6 +40142,7 @@ class ZeppelinOpenLayers extends Visualization {
 
     /** @param {{name:string;url:string;type:"raster"|"vector"}[]} layers */
     setLayers(layers) {
+        this.selectedLayers = layers;
         const layersAvailable = this.layersAvailable;
         for (let i = 0; i < layers.length; i++) {
             const layer = layers[i];
