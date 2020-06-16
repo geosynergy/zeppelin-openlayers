@@ -40634,9 +40634,8 @@ class ZeppelinOpenLayers extends Visualization {
         this.map = new Map({
             target: targetEl[0],
             view: new View({
-                center: [592260, 7.66872e+06],
-                zoom: 8,
-                projection: "EPSG:28355",
+                center: [0, 0],
+                zoom: 2,
             }),
             layers: [
                 new TileLayer({
@@ -40723,11 +40722,9 @@ class ZeppelinOpenLayers extends Visualization {
                     data.layer = new VectorLayer({
                         source: new VectorSource({
                             format: new GeoJSON({
-                                dataProjection: "EPSG:28355",
                                 extractGeometryName: true,
                             }),
                             url: data.url,
-                            strategy: all,
                         }),
                         style: lineStyle,
                     });
