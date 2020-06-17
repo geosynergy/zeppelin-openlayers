@@ -41694,15 +41694,15 @@ var ImageLayer = /** @class */ (function (_super) {
 class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
         super(targetEl, config);
-        const tooltip = this.tooltip = document.createElement("div");
-        tooltip.style.setProperty("position", "relative");
-        tooltip.style.setProperty("padding", "3px");
-        tooltip.style.setProperty("background", "rgba(0, 0, 0, 0.5)");
-        tooltip.style.setProperty("color", "white");
-        tooltip.style.setProperty("opacity", "0.7");
-        tooltip.style.setProperty("white-space", "nowrap");
-        tooltip.style.setProperty("font", "10pt sans-serif");
-        targetEl[0].appendChild(tooltip);
+        this.tooltip = document.createElement("div");
+        this.tooltip.style.setProperty("position", "relative");
+        this.tooltip.style.setProperty("padding", "3px");
+        this.tooltip.style.setProperty("background", "rgba(0, 0, 0, 0.5)");
+        this.tooltip.style.setProperty("color", "white");
+        this.tooltip.style.setProperty("opacity", "0.7");
+        this.tooltip.style.setProperty("white-space", "nowrap");
+        this.tooltip.style.setProperty("font", "10pt sans-serif");
+        targetEl[0].appendChild(this.tooltip);
 
         const columnSpec = [
           { name: 'url', tooltip: 'layer url' },
@@ -41714,7 +41714,7 @@ class ZeppelinOpenLayers extends Visualization {
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
         console.log(this, targetEl, config);
         /** @type {import('ol').Map} */
-        const map = this.map = new Map({
+        this.map = new Map({
             target: targetEl[0],
             view: new View({
                 center: [0, 0],
@@ -41726,34 +41726,39 @@ class ZeppelinOpenLayers extends Visualization {
                 }),
             ],
         });
-        const overlay = this.overlay = new Overlay({
-            element: tooltip,
+        this.map.on('change:view', console.log);
+        this.overlay = new Overlay({
+            element: this.tooltip,
             offset: [10, 0],
             positioning: 'bottom-left',
         });
-        map.addOverlay(overlay);
+        this.map.addOverlay(this.overlay);
         /** @type {{colour:string;name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
         this.layersAvailable = [];
-        const displayTooltip = (evt) => {
-            const layersHere = [];
-            var pixel = evt.pixel;
-            map.forEachLayerAtPixel(pixel, (layer) => {
-                for (const i of layersAvailable) {
-                    if (i.layer === layer) {
-                        layersHere.push(i);
-                        break;
-                    }
+        this.map.on('pointermove', (evt) => {
+            this.onPointerMove(evt);
+        });
+    }
+
+    /** @param {import('ol').MapBrowserEvent} evt */
+    onPointerMove(evt) {
+        const layersHere = [];
+        var pixel = evt.pixel;
+        this.map.forEachLayerAtPixel(pixel, (layer) => {
+            for (const i of this.layersAvailable) {
+                if (i.layer === layer) {
+                    layersHere.push(i);
+                    break;
                 }
-            });
-            if (layersHere.length) {
-                tooltip.style.removeProperty('display');
-                overlay.setPosition(evt.coordinate);
-                tooltip.textContent = layersHere.map(a=>a.name).join('\n');
-            } else {
-                tooltip.style.setProperty('display', 'none');
             }
-        };
-        map.on('pointermove', displayTooltip);
+        });
+        if (layersHere.length) {
+            this.tooltip.style.removeProperty('display');
+            this.overlay.setPosition(evt.coordinate);
+            this.tooltip.textContent = layersHere.map(a=>a.name).join('\n');
+        } else {
+            this.tooltip.style.setProperty('display', 'none');
+        }
     }
 
     getTransformation() {
