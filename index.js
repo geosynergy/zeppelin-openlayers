@@ -25,6 +25,21 @@ export default class ZeppelinOpenLayers extends Visualization {
         this.tooltip.style.setProperty("white-space", "nowrap");
         this.tooltip.style.setProperty("font", "10pt sans-serif");
         targetEl[0].appendChild(this.tooltip);
+        /** @type {import('ol/View').ViewOptions} */
+        let initialViewParameters = {
+            center: [0, 0],
+            zoom: 2,
+        };
+        try {
+            const params = JSON.parse(localStorage.getItem('zeppelin-openlayers-view') || '{}');
+            if (typeof params === 'object' && params !== null && !Array.isArray(params)) {
+                for (const key in params) {
+                    initialViewParameters[key] = params[key];
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to set some default parameters for the view', e);
+        }
 
         const columnSpec = [
           { name: 'url', tooltip: 'layer url' },
@@ -38,10 +53,7 @@ export default class ZeppelinOpenLayers extends Visualization {
         /** @type {import('ol').Map} */
         this.map = new Map({
             target: targetEl[0],
-            view: new View({
-                center: [0, 0],
-                zoom: 2,
-            }),
+            view: new View(initialViewParameters),
             layers: [
                 new TileLayer({
                     source: new OSM(),
@@ -60,6 +72,18 @@ export default class ZeppelinOpenLayers extends Visualization {
         this.map.on('pointermove', (evt) => {
             this.onPointerMove(evt);
         });
+        this.map.getView().on('change', (evt) => {
+            this.onMapViewMoveCenter(evt);
+        });
+    }
+
+    /** @param {import('ol/events/Event').default} evt */
+    onMapViewMoveCenter(evt) {
+        const view = this.map.getView();
+        localStorage.setItem('zeppelin-openlayers-view', JSON.stringify({
+            center: view.getCenter(),
+            zoom: view.getZoom(),
+        }));
     }
 
     /** @param {import('ol').MapBrowserEvent} evt */
