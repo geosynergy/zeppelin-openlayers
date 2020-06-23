@@ -41742,6 +41742,7 @@ class ZeppelinOpenLayers extends Visualization {
         } catch (e) {
             this.config.mapData.center_y = '0';
         }
+        this.setConfig(this.config);
         const view = this.map.getView();
         view.addEventListener('change', this.onMapViewMoveCenter);
     }
@@ -41902,10 +41903,10 @@ class ZeppelinOpenLayers extends Visualization {
     }
 
     render(tableData) {
+        this.setLayers(this.createMapDataModel(tableData));
         const view = this.map.getView();
         view.setCenter([Number(this.config.mapData.center_x), Number(this.config.mapData.center_y)]);
         view.setZoom(Number(this.config.mapData.zoom));
-        this.setLayers(this.createMapDataModel(tableData));
     }
 }
 
