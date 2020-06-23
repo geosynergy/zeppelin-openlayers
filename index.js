@@ -1,7 +1,6 @@
 import Visualization from './node_modules/zeppelin-vis/visualization.js';
 import ColumnselectorTransformation from './node_modules/zeppelin-tabledata/columnselector.js';
 import Map from './node_modules/ol/Map.js';
-import View from './node_modules/ol/View.js';
 import OSM from './node_modules/ol/source/OSM.js';
 import GeoJSON from './node_modules/ol/format/GeoJSON.js';
 import VectorLayer from './node_modules/ol/layer/Vector.js';
@@ -9,123 +8,92 @@ import TileLayer from './node_modules/ol/layer/Tile.js';
 import VectorSource from './node_modules/ol/source/Vector.js';
 import Stroke from './node_modules/ol/style/Stroke.js';
 import Style from './node_modules/ol/style/Style.js';
-import Overlay from './node_modules/ol/Overlay.js';
 import ImageWMS from './node_modules/ol/source/ImageWMS.js';
 import ImageLayer from './node_modules/ol/layer/Image.js';
 
+const columnSpec = [
+    {
+        name: 'url',
+        tooltip: 'layer url',
+    },
+    {
+        name: 'name',
+        tooltip: 'layer name',
+    },
+    {
+        name: 'type',
+        tooltip: 'layer type',
+    },
+    {
+        name: 'colour',
+        tooltip: 'vector colour',
+    },
+];
 export default class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
         super(targetEl, config);
-        this.tooltip = document.createElement("div");
-        this.tooltip.style.setProperty("position", "relative");
-        this.tooltip.style.setProperty("padding", "3px");
-        this.tooltip.style.setProperty("background", "rgba(0, 0, 0, 0.5)");
-        this.tooltip.style.setProperty("color", "white");
-        this.tooltip.style.setProperty("opacity", "0.7");
-        this.tooltip.style.setProperty("white-space", "nowrap");
-        this.tooltip.style.setProperty("font", "10pt sans-serif");
-        targetEl[0].appendChild(this.tooltip);
-        /** @type {import('ol/View').ViewOptions} */
-        let initialViewParameters = {
-            center: [0, 0],
-            zoom: 2,
-        };
-        try {
-            const params = config.extent || {};
-            for (const key in params) {
-                initialViewParameters[key] = params[key];
-            }
-        } catch (e) {
-            console.warn('Failed to set some default parameters for the view', e);
-        }
-
-        const columnSpec = [
-          { name: 'url', tooltip: 'layer url' },
-          { name: 'name', tooltip: 'layer name' },
-          { name: 'type', tooltip: 'layer type' },
-          { name: 'colour', tooltip: 'vector colour' },
-        ];
-    
+        console.log(this, config);
+        /** @type {{colour:string;name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
+        this.layersAvailable = [];
+        this.onMapViewMoveCenter = this.onMapViewMoveCenter.bind(this);
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
-        console.log(this, targetEl, config);
         /** @type {import('ol').Map} */
         this.map = new Map({
-            target: targetEl[0],
-            view: new View(initialViewParameters),
+            target: this.getHTMLElement(),
             layers: [
                 new TileLayer({
                     source: new OSM(),
                 }),
             ],
         });
-        this.map.on('change:view', console.log);
-        this.overlay = new Overlay({
-            element: this.tooltip,
-            offset: [10, 0],
-            positioning: 'bottom-left',
-        });
-        this.map.addOverlay(this.overlay);
-        /** @type {{colour:string;name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
-        this.layersAvailable = [];
-        this.map.on('pointermove', (evt) => {
-            this.onPointerMove(evt);
-        });
-        this.map.getView().on('change', (evt) => {
-            this.onMapViewMoveCenter(evt);
-        });
+        this.config.mapData = {};
+        try {
+            this.config.mapData.zoom = config.mapData.zoom;
+        } catch (e) {
+            this.config.mapData.zoom = '2';
+        }
+        try {
+            this.config.mapData.center_x = config.mapData.center_x;
+        } catch (e) {
+            this.config.mapData.center_x = '0';
+        }
+        try {
+            this.config.mapData.center_y = config.mapData.center_y;
+        } catch (e) {
+            this.config.mapData.center_y = '0';
+        }
+        const view = this.map.getView();
+        view.addEventListener('change', this.onMapViewMoveCenter);
     }
 
     /** @param {import('ol/events/Event').default} evt */
-    onMapViewMoveCenter(evt) {
+    onMapViewMoveCenter(ext) {
         const view = this.map.getView();
-        const extent = {
-            center: view.getCenter(),
-            zoom: view.getZoom(),
-        };
-        const config = {
-        };
-        for (const key in this.config) {
-            config[key] = this.config[key];
-        }
-        config.extent = extent;
-        this.emitConfig(config);
-        this.setConfig(config);
-        this.transformation.setConfig(config);
-    }
-
-    /** @param {import('ol').MapBrowserEvent} evt */
-    onPointerMove(evt) {
-        const layersHere = [];
-        var pixel = evt.pixel;
-        this.map.forEachLayerAtPixel(pixel, (layer) => {
-            for (const i of this.layersAvailable) {
-                if (i.layer === layer) {
-                    layersHere.push(i);
-                    break;
-                }
-            }
-        });
-        if (layersHere.length) {
-            this.tooltip.style.removeProperty('display');
-            this.overlay.setPosition(evt.coordinate);
-            this.tooltip.textContent = layersHere.map(a=>a.name).join('\n');
-        } else {
-            this.tooltip.style.setProperty('display', 'none');
-        }
+        const center = view.getCenter();
+        this.config.mapData.center_x = center[0].toString();
+        this.config.mapData.center_y = center[1].toString();
+        this.emitConfig(this.config);
     }
 
     getTransformation() {
         return this.transformation;
     }
 
-    showChart() {
-        this.setConfig(config);
+    type() {
+        return 'openLayers';
+    }
+
+    /** @returns {HTMLElement} */
+    getHTMLElement() {
+        return this.targetEl[0];
+    }
+
+    setConfig(config) {
+        super.setConfig(config);
         this.transformation.setConfig(config);
-        return this.map;
     }
 
     createMapDataModel(data) {
-  
       const getColumnIndex = (config, fieldName, isOptional) => {
         const fieldConf = config[fieldName];
         if(fieldConf instanceof Object) {
@@ -138,13 +106,11 @@ export default class ZeppelinOpenLayers extends Visualization {
           }
         }
       };
-  
       const config = this.getTransformation().config;
       const urlIndex = getColumnIndex(config, 'url');
       const nameIndex = getColumnIndex(config, 'name', true);
       const typeIndex = getColumnIndex(config, 'type');
       const colourIndex = getColumnIndex(config, 'colour', true);
-  
       const rows = data.rows.filter(row=>{
           return typeof row[nameIndex] === 'string' && typeof row[urlIndex] === 'string' && typeof row[typeIndex] === 'string' && row[urlIndex] && row[typeIndex];
       }).map(tableRow => {
@@ -159,10 +125,7 @@ export default class ZeppelinOpenLayers extends Visualization {
             colour,
         };
       });
-  
-      return {
-        rows
-      };
+      return rows;
     }
 
     /** @param {{name:string;url:string;type:"raster"|"vector";colour:string;}[]} layers */
@@ -259,10 +222,10 @@ export default class ZeppelinOpenLayers extends Visualization {
     }
 
     render(tableData) {
-        try {
-            this.setLayers(this.createMapDataModel(tableData).rows);
-        } catch (e) {
-            console.error(e);
-        }
+        "use strict";
+        const view = this.map.getView();
+        view.setCenter([Number(this.config.mapData.center_x), Number(this.config.mapData.center_y)]);
+        view.setZoom(Number(this.config.mapData.zoom));
+        this.setLayers(this.createMapDataModel(tableData));
     }
 }
