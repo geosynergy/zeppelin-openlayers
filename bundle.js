@@ -41761,9 +41761,11 @@ class ZeppelinOpenLayers extends Visualization {
             zoom: view.getZoom(),
         };
         const config = {
-            ...this.config,
-            extent,
         };
+        for (const key in this.config) {
+            config[key] = this.config[key];
+        }
+        config.extent = extent;
         this.emitConfig(config);
         this.setConfig(config);
         this.transformation.setConfig(config);
