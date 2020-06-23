@@ -41709,11 +41709,9 @@ class ZeppelinOpenLayers extends Visualization {
             zoom: 2,
         };
         try {
-            const params = JSON.parse(localStorage.getItem('zeppelin-openlayers-view') || '{}');
-            if (typeof params === 'object' && params !== null && !Array.isArray(params)) {
-                for (const key in params) {
-                    initialViewParameters[key] = params[key];
-                }
+            const params = config.extent || {};
+            for (const key in params) {
+                initialViewParameters[key] = params[key];
             }
         } catch (e) {
             console.warn('Failed to set some default parameters for the view', e);
@@ -41758,10 +41756,11 @@ class ZeppelinOpenLayers extends Visualization {
     /** @param {import('ol/events/Event').default} evt */
     onMapViewMoveCenter(evt) {
         const view = this.map.getView();
-        localStorage.setItem('zeppelin-openlayers-view', JSON.stringify({
+        this.config.extent = {
             center: view.getCenter(),
             zoom: view.getZoom(),
-        }));
+        };
+        this.emitConfig(this.config);
     }
 
     /** @param {import('ol').MapBrowserEvent} evt */
