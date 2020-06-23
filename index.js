@@ -78,11 +78,17 @@ export default class ZeppelinOpenLayers extends Visualization {
     /** @param {import('ol/events/Event').default} evt */
     onMapViewMoveCenter(evt) {
         const view = this.map.getView();
-        this.config.extent = {
+        const extent = {
             center: view.getCenter(),
             zoom: view.getZoom(),
         };
-        this.emitConfig(this.config);
+        const config = {
+            ...this.config,
+            extent,
+        };
+        this.emitConfig(config);
+        this.setConfig(config);
+        this.transformation.setConfig(config);
     }
 
     /** @param {import('ol').MapBrowserEvent} evt */
@@ -111,7 +117,7 @@ export default class ZeppelinOpenLayers extends Visualization {
     }
 
     showChart() {
-        super.setConfig(config);
+        this.setConfig(config);
         this.transformation.setConfig(config);
         return this.map;
     }
