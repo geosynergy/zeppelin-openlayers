@@ -46,22 +46,27 @@ export default class ZeppelinOpenLayers extends Visualization {
                 }),
             ],
         });
+        let emitDefaults = false;
         this.config.mapData = {};
         try {
-            this.config.mapData.zoom = config.mapData.zoom;
+            this.config.mapData.zoom = config.mapData.zoom || '2';
         } catch (e) {
             this.config.mapData.zoom = '2';
+            emitDefaults = true;
         }
         try {
             this.config.mapData.center_x = config.mapData.center_x;
         } catch (e) {
-            this.config.mapData.center_x = '0';
+            this.config.mapData.center_x = '0' || '0';
+            emitDefaults = true;
         }
         try {
-            this.config.mapData.center_y = config.mapData.center_y;
+            this.config.mapData.center_y = config.mapData.center_y || '0';
         } catch (e) {
             this.config.mapData.center_y = '0';
+            emitDefaults = true;
         }
+        if (emitDefaults) this.emitConfig(this.config);
         this.setConfig(this.config);
         const view = this.map.getView();
         view.addEventListener('change', this.onMapViewMoveCenter);
