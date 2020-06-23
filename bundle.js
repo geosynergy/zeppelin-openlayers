@@ -41725,6 +41725,8 @@ class ZeppelinOpenLayers extends Visualization {
                     source: new OSM(),
                 }),
             ],
+            view: new View({
+            }),
         });
         let emitDefaults = false;
         this.config.mapData = {};

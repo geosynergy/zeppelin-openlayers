@@ -1,6 +1,7 @@
 import Visualization from './node_modules/zeppelin-vis/visualization.js';
 import ColumnselectorTransformation from './node_modules/zeppelin-tabledata/columnselector.js';
 import Map from './node_modules/ol/Map.js';
+import View from './node_modules/ol/View.js';
 import OSM from './node_modules/ol/source/OSM.js';
 import GeoJSON from './node_modules/ol/format/GeoJSON.js';
 import VectorLayer from './node_modules/ol/layer/Vector.js';
@@ -45,6 +46,8 @@ export default class ZeppelinOpenLayers extends Visualization {
                     source: new OSM(),
                 }),
             ],
+            view: new View({
+            }),
         });
         let emitDefaults = false;
         this.config.mapData = {};
