@@ -12,6 +12,9 @@ import Style from './node_modules/ol/style/Style.js';
 import Overlay from './node_modules/ol/Overlay.js';
 import ImageWMS from './node_modules/ol/source/ImageWMS.js';
 import ImageLayer from './node_modules/ol/layer/Image.js';
+import Text from './node_modules/ol/style/Text.js';
+import Fill from './node_modules/ol/style/Fill.js';
+import Feature from './node_modules/ol/Feature.js';
 
 export default class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
@@ -46,6 +49,7 @@ export default class ZeppelinOpenLayers extends Visualization {
           { name: 'name', tooltip: 'layer name' },
           { name: 'type', tooltip: 'layer type' },
           { name: 'colour', tooltip: 'vector colour' },
+          { name: 'featureprop', tooltip: 'name of the feature property' },
         ];
     
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
@@ -137,6 +141,7 @@ export default class ZeppelinOpenLayers extends Visualization {
       const nameIndex = getColumnIndex(config, 'name', true);
       const typeIndex = getColumnIndex(config, 'type');
       const colourIndex = getColumnIndex(config, 'colour', true);
+      const featurepropIndex = getColumnIndex(config, 'featureprop', true);
   
       const rows = data.rows.filter(row=>{
           return typeof row[nameIndex] === 'string' && typeof row[urlIndex] === 'string' && typeof row[typeIndex] === 'string' && row[urlIndex] && row[typeIndex];
@@ -145,11 +150,13 @@ export default class ZeppelinOpenLayers extends Visualization {
         const url = tableRow[urlIndex];
         const type = tableRow[typeIndex];
         const colour = tableRow[colourIndex] || 'rgba(0, 0, 255, 1.0)';
+        const featureprop = tableRow[featurepropIndex];
         return {
             name,
             url,
             type,
             colour,
+            featureprop,
         };
       });
   
@@ -158,7 +165,7 @@ export default class ZeppelinOpenLayers extends Visualization {
       };
     }
 
-    /** @param {{name:string;url:string;type:"raster"|"vector";colour:string;}[]} layers */
+    /** @param {{name:string;url:string;type:"raster"|"vector";colour:string;featureprop:string|null;}[]} layers */
     setLayers(layers) {
         this.selectedLayers = layers;
         const layersAvailable = this.layersAvailable;
@@ -219,11 +226,30 @@ export default class ZeppelinOpenLayers extends Visualization {
                     }
                     data.layer = new VectorLayer({
                         source: sourceParams,
-                        style: new Style({
-                            stroke: new Stroke({
-                                color: layer.colour || 'rgba(0, 0, 255, 1.0)',
-                            }),
-                        }),
+                        /** @param {import('ol').Feature} feature */
+                        style: (feature) => {
+                            let text;
+                            const properties = feature.getProperties();
+                            if (layer.featureprop && properties[layer.featureprop]) {
+                                text = new Text({
+                                    stroke: new Stroke({
+                                        color: layer.colour || 'rgba(0, 0, 255, 1.0)',
+                                        width: 2,
+                                    }),
+                                    fill: new Fill({
+                                        color: layer.colour || 'rgba(0, 0, 255, 1.0)',
+                                    }),
+                                    text: properties[layer.featureprop],
+                                });
+                            }
+                            const style = new Style({
+                                stroke: new Stroke({
+                                    color: layer.colour || 'rgba(0, 0, 255, 1.0)',
+                                }),
+                                text,
+                            });
+                            return style;
+                        },
                     });
                 } else {
                     throw new Error("Layer type not recognised.");
