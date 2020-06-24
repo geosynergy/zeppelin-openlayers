@@ -42369,7 +42369,7 @@ class ZeppelinOpenLayers extends Visualization {
                                     fill: new Fill({
                                         color: layer.colour || 'rgba(0, 0, 255, 1.0)',
                                     }),
-                                    text: properties[layer.featureprop],
+                                    text: String(properties[layer.featureprop]),
                                 });
                             }
                             const style = new Style({
