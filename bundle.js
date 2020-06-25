@@ -42149,15 +42149,8 @@ var ImageLayer = /** @class */ (function (_super) {
 class ZeppelinOpenLayers extends Visualization {
     constructor(targetEl, config) {
         super(targetEl, config);
-        this.tooltip = document.createElement("div");
-        this.tooltip.style.setProperty("position", "relative");
-        this.tooltip.style.setProperty("padding", "3px");
-        this.tooltip.style.setProperty("background", "rgba(0, 0, 0, 0.5)");
-        this.tooltip.style.setProperty("color", "white");
-        this.tooltip.style.setProperty("opacity", "0.7");
-        this.tooltip.style.setProperty("white-space", "nowrap");
-        this.tooltip.style.setProperty("font", "10pt sans-serif");
-        targetEl[0].appendChild(this.tooltip);
+        this.layercontrol = document.createElement("div");
+        targetEl[0].appendChild(this.layercontrol);
         /** @type {import('ol/View').ViewOptions} */
         let initialViewParameters = {
             center: [0, 0],
@@ -42184,9 +42177,11 @@ class ZeppelinOpenLayers extends Visualization {
     
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
         console.log(this, targetEl, config);
+        this.mapElement = document.createElement("div");
+        targetEl[0].appendChild(this.mapElement);
         /** @type {import('ol').Map} */
         this.map = new Map({
-            target: targetEl[0],
+            target: this.mapElement,
             view: new View(initialViewParameters),
             layers: [
                 new TileLayer({
@@ -42196,16 +42191,13 @@ class ZeppelinOpenLayers extends Visualization {
         });
         this.map.on('change:view', console.log);
         this.overlay = new Overlay({
-            element: this.tooltip,
+            element: this.layercontrol,
             offset: [10, 0],
             positioning: 'bottom-left',
         });
         this.map.addOverlay(this.overlay);
         /** @type {{colour:string;name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
         this.layersAvailable = [];
-        this.map.on('pointermove', (evt) => {
-            this.onPointerMove(evt);
-        });
         this.map.getView().on('change', (evt) => {
             this.onMapViewMoveCenter(evt);
         });
@@ -42218,27 +42210,6 @@ class ZeppelinOpenLayers extends Visualization {
             center: view.getCenter(),
             zoom: view.getZoom(),
         }));
-    }
-
-    /** @param {import('ol').MapBrowserEvent} evt */
-    onPointerMove(evt) {
-        const layersHere = [];
-        var pixel = evt.pixel;
-        this.map.forEachLayerAtPixel(pixel, (layer) => {
-            for (const i of this.layersAvailable) {
-                if (i.layer === layer) {
-                    layersHere.push(i);
-                    break;
-                }
-            }
-        });
-        if (layersHere.length) {
-            this.tooltip.style.removeProperty('display');
-            this.overlay.setPosition(evt.coordinate);
-            this.tooltip.textContent = layersHere.map(a=>a.name).join('\n');
-        } else {
-            this.tooltip.style.setProperty('display', 'none');
-        }
     }
 
     getTransformation() {
