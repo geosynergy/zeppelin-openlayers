@@ -42147,10 +42147,11 @@ var ImageLayer = /** @class */ (function (_super) {
 }(BaseImageLayer));
 
 class ZeppelinOpenLayers extends Visualization {
+    /** @param {[HTMLElement]} targetEl */
     constructor(targetEl, config) {
         super(targetEl, config);
         this.layercontrol = document.createElement("div");
-        targetEl[0].appendChild(this.layercontrol);
+        this.layercontrol = targetEl[0].appendChild(this.layercontrol);
         /** @type {import('ol/View').ViewOptions} */
         let initialViewParameters = {
             center: [0, 0],
@@ -42178,7 +42179,7 @@ class ZeppelinOpenLayers extends Visualization {
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
         console.log(this, targetEl, config);
         this.mapElement = document.createElement("div");
-        targetEl[0].appendChild(this.mapElement);
+        this.mapElement = targetEl[0].appendChild(this.mapElement);
         /** @type {import('ol').Map} */
         this.map = new Map({
             target: this.mapElement,

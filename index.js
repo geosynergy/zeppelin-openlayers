@@ -15,10 +15,11 @@ import Text from './node_modules/ol/style/Text.js';
 import Fill from './node_modules/ol/style/Fill.js';
 
 export default class ZeppelinOpenLayers extends Visualization {
+    /** @param {[HTMLElement]} targetEl */
     constructor(targetEl, config) {
         super(targetEl, config);
         this.layercontrol = document.createElement("div");
-        targetEl[0].appendChild(this.layercontrol);
+        this.layercontrol = targetEl[0].appendChild(this.layercontrol);
         /** @type {import('ol/View').ViewOptions} */
         let initialViewParameters = {
             center: [0, 0],
@@ -46,7 +47,7 @@ export default class ZeppelinOpenLayers extends Visualization {
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
         console.log(this, targetEl, config);
         this.mapElement = document.createElement("div");
-        targetEl[0].appendChild(this.mapElement);
+        this.mapElement = targetEl[0].appendChild(this.mapElement);
         /** @type {import('ol').Map} */
         this.map = new Map({
             target: this.mapElement,
