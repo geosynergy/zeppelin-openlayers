@@ -42421,8 +42421,7 @@ class ZeppelinOpenLayers extends Visualization {
                 checkbox.addEventListener("change", function onChange() {
                     availableLayer.layer.setVisible(this.checked);
                 });
-                const newline = document.createElement("a");
-                newline.textContent = " ";
+                const newline = document.createElement("br");
                 layercontrol.appendChild(checkbox);
                 layercontrol.appendChild(label);
                 layercontrol.appendChild(newline);
