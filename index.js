@@ -290,7 +290,8 @@ export default class ZeppelinOpenLayers extends Visualization {
                 checkbox.addEventListener("change", function onChange() {
                     availableLayer.layer.setVisible(this.checked);
                 });
-                const newline = document.createElement("br");
+                const newline = document.createElement("a");
+                newline.textContent = " ";
                 layercontrol.appendChild(checkbox);
                 layercontrol.appendChild(label);
                 layercontrol.appendChild(newline);
