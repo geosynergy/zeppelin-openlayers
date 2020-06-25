@@ -42189,6 +42189,7 @@ class ZeppelinOpenLayers extends Visualization {
         console.log(this, targetEl, config);
         this.mapElement = document.createElement("div");
         this.mapElement = targetEl[0].appendChild(this.mapElement);
+        this.mapElement.style.height = "100%";
         /** @type {import('ol').Map} */
         this.map = new Map({
             target: this.mapElement,
