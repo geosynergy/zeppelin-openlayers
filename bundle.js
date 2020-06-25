@@ -42150,6 +42150,15 @@ class ZeppelinOpenLayers extends Visualization {
     /** @param {[HTMLElement]} targetEl */
     constructor(targetEl, config) {
         super(targetEl, config);
+        this.tooltip = document.createElement("div");
+        this.tooltip.style.setProperty("position", "relative");
+        this.tooltip.style.setProperty("padding", "3px");
+        this.tooltip.style.setProperty("background", "rgba(0, 0, 0, 0.5)");
+        this.tooltip.style.setProperty("color", "white");
+        this.tooltip.style.setProperty("opacity", "0.7");
+        this.tooltip.style.setProperty("white-space", "nowrap");
+        this.tooltip.style.setProperty("font", "10pt sans-serif");
+        targetEl[0].appendChild(this.tooltip);
         this.layercontrol = document.createElement("div");
         this.layercontrol = targetEl[0].appendChild(this.layercontrol);
         /** @type {import('ol/View').ViewOptions} */
@@ -42190,12 +42199,43 @@ class ZeppelinOpenLayers extends Visualization {
                 }),
             ],
         });
+        this.overlay = new Overlay({
+            element: this.tooltip,
+            offset: [10, 0],
+            positioning: 'bottom-left',
+        });
+        this.map.addOverlay(this.overlay);
         /** @type {{colour:string;name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
         this.layersAvailable = [];
+        this.map.on('pointermove', (evt) => {
+            this.onPointerMove(evt);
+        });
         this.map.getView().on('change', (evt) => {
             this.onMapViewMoveCenter(evt);
         });
     }
+
+    /** @param {import('ol').MapBrowserEvent} evt */
+    onPointerMove(evt) {
+        const layersHere = [];
+        var pixel = evt.pixel;
+        this.map.forEachLayerAtPixel(pixel, (layer) => {
+            for (const i of this.layersAvailable) {
+                if (i.layer === layer) {
+                    layersHere.push(i);
+                    break;
+                }
+            }
+        });
+        if (layersHere.length) {
+            this.tooltip.style.removeProperty('display');
+            this.overlay.setPosition(evt.coordinate);
+            this.tooltip.textContent = layersHere.map(a=>a.name).join('\n');
+        } else {
+            this.tooltip.style.setProperty('display', 'none');
+        }
+    }
+
 
     /** @param {import('ol/events/Event').default} evt */
     onMapViewMoveCenter(evt) {
