@@ -9,7 +9,6 @@ import TileLayer from './node_modules/ol/layer/Tile.js';
 import VectorSource from './node_modules/ol/source/Vector.js';
 import Stroke from './node_modules/ol/style/Stroke.js';
 import Style from './node_modules/ol/style/Style.js';
-import Overlay from './node_modules/ol/Overlay.js';
 import ImageWMS from './node_modules/ol/source/ImageWMS.js';
 import ImageLayer from './node_modules/ol/layer/Image.js';
 import Text from './node_modules/ol/style/Text.js';
@@ -58,13 +57,6 @@ export default class ZeppelinOpenLayers extends Visualization {
                 }),
             ],
         });
-        this.map.on('change:view', console.log);
-        this.overlay = new Overlay({
-            element: this.layercontrol,
-            offset: [10, 0],
-            positioning: 'bottom-left',
-        });
-        this.map.addOverlay(this.overlay);
         /** @type {{colour:string;name:string;url:string;layer:import('ol/layer/Base').default;is_enabled:boolean;type:"raster":"vector"}[]} */
         this.layersAvailable = [];
         this.map.getView().on('change', (evt) => {
@@ -137,6 +129,10 @@ export default class ZeppelinOpenLayers extends Visualization {
 
     /** @param {{name:string;url:string;type:"raster"|"vector";colour:string;featureprop:string|null;}[]} layers */
     setLayers(layers) {
+        const layercontrol = this.layercontrol;
+        while (layercontrol.children.length) {
+            layercontrol.removeChild(layercontrol.children[0]);
+        }
         this.selectedLayers = layers;
         const layersAvailable = this.layersAvailable;
         for (let i = 0; i < layers.length; i++) {
@@ -238,8 +234,23 @@ export default class ZeppelinOpenLayers extends Visualization {
                 }
             }
             if (was_match_found && !availableLayer.is_enabled) {
+                const layer_unique_name = `${availableLayer.name}_${availableLayer.url}_${availableLayer.type}`;
                 this.map.addLayer(availableLayer.layer);
                 availableLayer.is_enabled = true;
+                const checkbox = document.createElement("input");
+                checkbox.setAttribute("type", "checkbox");
+                checkbox.checked = availableLayer.layer.getVisible();
+                checkbox.name = layer_unique_name;
+                const label = document.createElement("label");
+                label.setAttribute("for", layer_unique_name);
+                label.textContent = `${availableLayer.name} (${availableLayer.type})`;
+                checkbox.addEventListener("change", function onChange() {
+                    availableLayer.layer.setVisible(this.checked);
+                });
+                const newline = document.createElement("br");
+                layercontrol.appendChild(checkbox);
+                layercontrol.appendChild(label);
+                layercontrol.appendChild(newline);
             } else if (!was_match_found && availableLayer.is_enabled) {
                 this.map.removeLayer(availableLayer.layer);
                 availableLayer.is_enabled = false;
