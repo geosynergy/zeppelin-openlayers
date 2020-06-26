@@ -294,9 +294,29 @@ export default class ZeppelinOpenLayers extends Visualization {
                 }
             }
             if (was_match_found && !availableLayer.is_enabled) {
-                const layer_unique_name = `${availableLayer.name}_${availableLayer.url}_${availableLayer.type}`;
                 this.map.addLayer(availableLayer.layer);
                 availableLayer.is_enabled = true;
+            } else if (!was_match_found && availableLayer.is_enabled) {
+                this.map.removeLayer(availableLayer.layer);
+                availableLayer.is_enabled = false;
+            } else if (was_match_found) {
+                this.map.removeLayer(availableLayer.layer);
+                this.map.addLayer(availableLayer.layer);
+            }
+        }
+        layersAvailable.reverse();
+        for (let i = 0; i < layersAvailable.length; i++) {
+            const availableLayer = layersAvailable[i];
+            let was_match_found = false;
+            for (let j = 0; j < layers.length; j++) {
+                const layer = layers[j];
+                if (layer.name === availableLayer.name && layer.url === availableLayer.url && availableLayer.type === layer.type) {
+                    was_match_found = true;
+                    break;
+                }
+            }
+            if (was_match_found) {
+                const layer_unique_name = `${availableLayer.name}_${availableLayer.url}_${availableLayer.type}`;
                 const checkbox = document.createElement("input");
                 checkbox.setAttribute("type", "checkbox");
                 checkbox.checked = availableLayer.layer.getVisible();
@@ -312,11 +332,9 @@ export default class ZeppelinOpenLayers extends Visualization {
                 layercontrol.appendChild(checkbox);
                 layercontrol.appendChild(label);
                 layercontrol.appendChild(newline);
-            } else if (!was_match_found && availableLayer.is_enabled) {
-                this.map.removeLayer(availableLayer.layer);
-                availableLayer.is_enabled = false;
             }
         }
+        layersAvailable.reverse();
     }
 
     render(tableData) {
