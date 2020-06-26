@@ -244,7 +244,7 @@ export default class ZeppelinOpenLayers extends Visualization {
                         style: (feature) => {
                             let featureMax = -Infinity;
                             let featureMin = Infinity;
-                            for (const feature of data.feature.getSource().getFeatures()) {
+                            for (const feature of data.layer.getSource().getFeatures()) {
                                 const props = feature.getProperties();
                                 if (props[layer.featureprop]) {
                                     if (featureMax < props[layer.featureprop]) featureMax = props[layer.featureprop];
