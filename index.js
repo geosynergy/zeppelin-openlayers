@@ -57,6 +57,7 @@ export default class ZeppelinOpenLayers extends Visualization {
           { name: 'type', tooltip: 'layer type' },
           { name: 'colour', tooltip: 'vector colour' },
           { name: 'featureprop', tooltip: 'name of the feature property' },
+          { name: 'featuretextlength', tooltip: 'Max length for the text of the feature property' },
         ];
     
         this.transformation = new ColumnselectorTransformation(config, columnSpec);
@@ -152,6 +153,7 @@ export default class ZeppelinOpenLayers extends Visualization {
       const typeIndex = getColumnIndex(config, 'type');
       const colourIndex = getColumnIndex(config, 'colour', true);
       const featurepropIndex = getColumnIndex(config, 'featureprop', true);
+      const featuretextlengthIndex = getColumnIndex(config, 'featuretextlength', true);
   
       const rows = data.rows.filter(row=>{
           return typeof row[nameIndex] === 'string' && typeof row[urlIndex] === 'string' && typeof row[typeIndex] === 'string' && row[urlIndex] && row[typeIndex];
@@ -161,12 +163,14 @@ export default class ZeppelinOpenLayers extends Visualization {
         const type = tableRow[typeIndex];
         const colour = tableRow[colourIndex] || 'rgba(0, 0, 255, 1.0)';
         const featureprop = tableRow[featurepropIndex];
+        const featuretextlength = tableRow[featuretextlengthIndex];
         return {
             name,
             url,
             type,
             colour,
             featureprop,
+            featuretextlength: (isFinite(Number(featuretextlength)) ? Number(featuretextlength) : Infinity) || Infinity,
         };
       });
   
@@ -175,7 +179,7 @@ export default class ZeppelinOpenLayers extends Visualization {
       };
     }
 
-    /** @param {{name:string;url:string;type:"raster"|"vector";colour:string;featureprop:string|null;}[]} layers */
+    /** @param {{name:string;url:string;type:"raster"|"vector";colour:string;featureprop:string|null;featuretextlength:number;}[]} layers */
     setLayers(layers) {
         const layercontrol = this.layercontrol;
         while (layercontrol.children.length) {
@@ -262,7 +266,7 @@ export default class ZeppelinOpenLayers extends Visualization {
                                     fill: new Fill({
                                         color: layer.colour || 'rgba(0, 0, 255, 1.0)',
                                     }),
-                                    text: String(properties[layer.featureprop]),
+                                    text: String(properties[layer.featureprop]).slice(0, layer.featuretextlength),
                                 });
                             }
                             const style = new Style({
