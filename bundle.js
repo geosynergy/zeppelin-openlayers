@@ -42372,6 +42372,15 @@ class ZeppelinOpenLayers extends Visualization {
                         source: sourceParams,
                         /** @param {import('ol').Feature} feature */
                         style: (feature) => {
+                            let featureMax = -Infinity;
+                            let featureMin = Infinity;
+                            for (const feature of data.feature.getSource().getFeatures()) {
+                                const props = feature.getProperties();
+                                if (props[layer.featureprop]) {
+                                    if (featureMax < props[layer.featureprop]) featureMax = props[layer.featureprop];
+                                    if (featureMin > props[layer.featureprop]) featureMin = props[layer.featureprop];
+                                }
+                            }
                             let text;
                             const properties = feature.getProperties();
                             if (layer.featureprop && properties[layer.featureprop]) {
@@ -42390,6 +42399,9 @@ class ZeppelinOpenLayers extends Visualization {
                                 stroke: new Stroke({
                                     color: layer.colour || 'rgba(0, 0, 255, 1.0)',
                                 }),
+                                image: feature.getGeometry().getType() === 'Point' ? new CircleStyle({
+                                    radius: properties[layer.featureprop] ? ((properties[layer.featureprop] - featureMin) / (featureMax - featureMin)) * 5 + 1 : 1,
+                                }) : void 0,
                                 text,
                             });
                             return style;

@@ -14,6 +14,7 @@ import ImageWMS from './node_modules/ol/source/ImageWMS.js';
 import ImageLayer from './node_modules/ol/layer/Image.js';
 import Text from './node_modules/ol/style/Text.js';
 import Fill from './node_modules/ol/style/Fill.js';
+import Circle from './node_modules/ol/style/Circle.js';
 
 export default class ZeppelinOpenLayers extends Visualization {
     /** @param {[HTMLElement]} targetEl */
@@ -241,6 +242,15 @@ export default class ZeppelinOpenLayers extends Visualization {
                         source: sourceParams,
                         /** @param {import('ol').Feature} feature */
                         style: (feature) => {
+                            let featureMax = -Infinity;
+                            let featureMin = Infinity;
+                            for (const feature of data.feature.getSource().getFeatures()) {
+                                const props = feature.getProperties();
+                                if (props[layer.featureprop]) {
+                                    if (featureMax < props[layer.featureprop]) featureMax = props[layer.featureprop];
+                                    if (featureMin > props[layer.featureprop]) featureMin = props[layer.featureprop];
+                                }
+                            }
                             let text;
                             const properties = feature.getProperties();
                             if (layer.featureprop && properties[layer.featureprop]) {
@@ -259,6 +269,9 @@ export default class ZeppelinOpenLayers extends Visualization {
                                 stroke: new Stroke({
                                     color: layer.colour || 'rgba(0, 0, 255, 1.0)',
                                 }),
+                                image: feature.getGeometry().getType() === 'Point' ? new Circle({
+                                    radius: properties[layer.featureprop] ? ((properties[layer.featureprop] - featureMin) / (featureMax - featureMin)) * 5 + 1 : 1,
+                                }) : void 0,
                                 text,
                             });
                             return style;
