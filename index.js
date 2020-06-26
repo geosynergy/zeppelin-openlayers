@@ -29,6 +29,10 @@ export default class ZeppelinOpenLayers extends Visualization {
         this.tooltip.style.setProperty("font", "10pt sans-serif");
         targetEl[0].appendChild(this.tooltip);
         this.layercontrol = document.createElement("div");
+        this.layercontrol.style.position = "absolute";
+        this.layercontrol.style.zIndex = "1";
+        this.layercontrol.style.userSelect = "none";
+        this.layercontrol.style.pointerEvents = "none";
         this.layercontrol = targetEl[0].appendChild(this.layercontrol);
         /** @type {import('ol/View').ViewOptions} */
         let initialViewParameters = {
@@ -284,6 +288,7 @@ export default class ZeppelinOpenLayers extends Visualization {
                 checkbox.setAttribute("type", "checkbox");
                 checkbox.checked = availableLayer.layer.getVisible();
                 checkbox.name = layer_unique_name;
+                checkbox.style.pointerEvents = "all";
                 const label = document.createElement("label");
                 label.setAttribute("for", layer_unique_name);
                 label.textContent = `${availableLayer.name} (${availableLayer.type})`;
