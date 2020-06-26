@@ -272,7 +272,7 @@ export default class ZeppelinOpenLayers extends Visualization {
                                 image: feature.getGeometry().getType() === 'Point' ? new Circle({
                                     radius: properties[layer.featureprop] ? ((properties[layer.featureprop] - featureMin) / (featureMax - featureMin)) * 25 + 5 : 1,
                                     fill: new Fill({
-                                        color: 'rgba(255, 255, 255, 1.0)',
+                                        color: 'rgba(0, 255, 0, 1.0)',
                                     }),
                                 }) : void 0,
                                 text,
