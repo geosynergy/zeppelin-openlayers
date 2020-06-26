@@ -42383,7 +42383,7 @@ class ZeppelinOpenLayers extends Visualization {
                             }
                             let text;
                             const properties = feature.getProperties();
-                            if (layer.featureprop && properties[layer.featureprop]) {
+                            if (layer.featureprop && properties[layer.featureprop] && feature.getGeometry().getType !== 'Point') {
                                 text = new Text({
                                     stroke: new Stroke({
                                         color: layer.colour || 'rgba(0, 0, 255, 1.0)',
